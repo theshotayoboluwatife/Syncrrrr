@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Sequence"
+version = "1.0.0"
+id = "artifacts/sequence"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18540
+
+[services.development]
+run = "pnpm --filter @workspace/sequence run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sequence", "run", "build" ]
+publicDir = "artifacts/sequence/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18540"
+BASE_PATH = "/"

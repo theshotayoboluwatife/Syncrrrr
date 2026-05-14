@@ -1,0 +1,43 @@
+uploads = []
+
+[[generated]]
+id = "RTmFu6jfwk2RJPoc2TBmz"
+uri = "file://attached_assets/generated_images/generated_image.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "0LFL9j68iQR-XaYUSzTqh"
+uri = "file://attached_assets/logo/syncr-logo-pack.tar.gz"
+type = "unspecified"
+title = "Syncr — full logo pack (all variants, SVG + PNG)"
+
+[[outputs]]
+id = "r29d3XBwqfEtOEfzewmaw"
+uri = "file://attached_assets/logo/syncr-logo-white-on-transparent.svg"
+type = "image"
+title = "Syncr — white on transparent (SVG, vector)"
+
+[[outputs]]
+id = "36erOYR1BCMBw2pb3NdST"
+uri = "file://attached_assets/logo/syncr-logo-white-on-transparent-2048.png"
+type = "image"
+title = "Syncr — white on transparent (PNG 2048px)"
+
+[[outputs]]
+id = "IPLkF8WoDOdy6lhCO_8K8"
+uri = "file://attached_assets/logo/syncr-logo-white-on-black-2048.png"
+type = "image"
+title = "Syncr — white on black (PNG 2048px)"
+
+[[outputs]]
+id = "3nhdEMwrzpRdeOelQ3iXf"
+uri = "file://attached_assets/logo/syncr-logo-black-on-white-2048.png"
+type = "image"
+title = "Syncr — black on white (PNG 2048px)"
+
+[[outputs]]
+id = "dKga7ZQDU0owUskx9fzQF"
+uri = "file://attached_assets/logo/syncr-logo-black-on-transparent.svg"
+type = "image"
+title = "Syncr — black on transparent (SVG, vector)"

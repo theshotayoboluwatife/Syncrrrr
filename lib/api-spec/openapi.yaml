@@ -1,0 +1,1814 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Sequence - Album Track Sequencing App API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: users
+    description: User sync operations
+  - name: projects
+    description: Project management
+  - name: tracks
+    description: Track management
+  - name: sequences
+    description: Sequence/playlist management
+  - name: storage
+    description: Object storage operations
+  - name: share
+    description: Public sharing
+  - name: teams
+    description: Team management
+  - name: join
+    description: Team invite link joining
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+    put:
+      operationId: upsertMe
+      tags: [users]
+      summary: Sync Clerk user to database
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertUserBody"
+      responses:
+        "200":
+          description: User upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List all projects for current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectSummary"
+
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectBody"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get a project by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Not found
+
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectBody"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/members:
+    get:
+      operationId: listProjectMembers
+      tags: [projects]
+      summary: List members of a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectMember"
+
+    post:
+      operationId: addProjectMember
+      tags: [projects]
+      summary: Add a collaborator by email
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMemberBody"
+      responses:
+        "201":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMember"
+        "404":
+          description: User not found
+
+  /projects/{projectId}/members/{userId}:
+    delete:
+      operationId: removeProjectMember
+      tags: [projects]
+      summary: Remove a collaborator
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed
+
+  /projects/{projectId}/tracks:
+    get:
+      operationId: listTracks
+      tags: [tracks]
+      summary: List all tracks in a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Track list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Track"
+
+    post:
+      operationId: createTrack
+      tags: [tracks]
+      summary: Create/register a track after upload
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrackBody"
+      responses:
+        "201":
+          description: Track created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Track"
+
+  /projects/{projectId}/tracks/{trackId}:
+    patch:
+      operationId: updateTrack
+      tags: [tracks]
+      summary: Update track metadata (title, BPM, key)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrackBody"
+      responses:
+        "200":
+          description: Updated track
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Track"
+
+    delete:
+      operationId: deleteTrack
+      tags: [tracks]
+      summary: Delete a track
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/sequences:
+    get:
+      operationId: listSequences
+      tags: [sequences]
+      summary: List all sequences in a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sequences
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sequence"
+
+    post:
+      operationId: createSequence
+      tags: [sequences]
+      summary: Create a new sequence
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSequenceBody"
+      responses:
+        "201":
+          description: Sequence created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+
+  /projects/{projectId}/sequences/{sequenceId}:
+    get:
+      operationId: getSequence
+      tags: [sequences]
+      summary: Get a sequence with its ordered tracks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sequenceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sequence with tracks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SequenceWithTracks"
+
+    patch:
+      operationId: updateSequence
+      tags: [sequences]
+      summary: Rename a sequence
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sequenceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSequenceBody"
+      responses:
+        "200":
+          description: Updated sequence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+
+    delete:
+      operationId: deleteSequence
+      tags: [sequences]
+      summary: Delete a sequence
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sequenceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/sequences/{sequenceId}/duplicate:
+    post:
+      operationId: duplicateSequence
+      tags: [sequences]
+      summary: Duplicate a sequence with all its track order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sequenceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Duplicated sequence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+
+  /projects/{projectId}/sequences/{sequenceId}/tracks:
+    post:
+      operationId: addTrackToSequence
+      tags: [sequences]
+      summary: Add a track to a sequence
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sequenceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddTrackToSequenceBody"
+      responses:
+        "201":
+          description: Track added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SequenceWithTracks"
+
+  /projects/{projectId}/sequences/{sequenceId}/tracks/{trackId}:
+    delete:
+      operationId: removeTrackFromSequence
+      tags: [sequences]
+      summary: Remove a track from a sequence
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sequenceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated sequence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SequenceWithTracks"
+
+  /projects/{projectId}/sequences/{sequenceId}/reorder:
+    patch:
+      operationId: reorderSequenceTracks
+      tags: [sequences]
+      summary: Reorder tracks in a sequence
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sequenceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderTracksBody"
+      responses:
+        "200":
+          description: Reordered sequence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SequenceWithTracks"
+
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned upload URL
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestUploadUrlBody"
+      responses:
+        "200":
+          description: Presigned URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestUploadUrlResponse"
+
+  /storage/objects/{objectPath}:
+    get:
+      operationId: getObject
+      tags: [storage]
+      summary: Stream an object from storage
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content
+
+  /share/{shareToken}:
+    get:
+      operationId: getSharedProject
+      tags: [share]
+      summary: Get a publicly shared project (read-only, no auth)
+      parameters:
+        - name: shareToken
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shared project with sequences and tracks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedProject"
+        "404":
+          description: Not found
+
+  /share/{shareToken}/stream/{trackId}:
+    get:
+      operationId: getSharedTrackStream
+      tags: [share]
+      summary: Get streaming URL for a track in a shared project
+      parameters:
+        - name: shareToken
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Stream URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackStreamUrl"
+        "404":
+          description: Not found
+
+  /teams:
+    get:
+      operationId: listTeams
+      tags: [teams]
+      summary: List teams for current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamSummary"
+
+    post:
+      operationId: createTeam
+      tags: [teams]
+      summary: Create a new team
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTeamBody"
+      responses:
+        "201":
+          description: Team created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamSummary"
+
+  /teams/{teamId}:
+    get:
+      operationId: getTeam
+      tags: [teams]
+      summary: Get a team by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Team details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamSummary"
+        "404":
+          description: Not found
+
+    patch:
+      operationId: updateTeam
+      tags: [teams]
+      summary: Update a team
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamBody"
+      responses:
+        "200":
+          description: Updated team
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamSummary"
+
+    delete:
+      operationId: deleteTeam
+      tags: [teams]
+      summary: Delete a team (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /teams/{teamId}/members:
+    get:
+      operationId: listTeamMembers
+      tags: [teams]
+      summary: List members of a team
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of team members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamMember"
+
+    post:
+      operationId: addTeamMember
+      tags: [teams]
+      summary: Add a member to a team by email
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddTeamMemberBody"
+      responses:
+        "201":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+
+  /teams/{teamId}/members/{userId}:
+    patch:
+      operationId: updateTeamMember
+      tags: [teams]
+      summary: Update a team member's role
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamMemberBody"
+      responses:
+        "200":
+          description: Member updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+
+    delete:
+      operationId: removeTeamMember
+      tags: [teams]
+      summary: Remove a member from a team
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed
+
+  /teams/{teamId}/invites/{inviteId}:
+    delete:
+      operationId: cancelTeamInvite
+      tags: [teams]
+      summary: Cancel a pending email invite (admin+)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: inviteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Cancelled
+
+  /teams/{teamId}/tracks:
+    get:
+      operationId: listTeamTracks
+      tags: [tracks]
+      summary: List all tracks in a team library
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Track list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Track"
+
+    post:
+      operationId: createTeamTrack
+      tags: [tracks]
+      summary: Create/register a track in a team library
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrackBody"
+      responses:
+        "201":
+          description: Track created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Track"
+
+  /teams/{teamId}/tracks/{trackId}:
+    patch:
+      operationId: updateTeamTrack
+      tags: [tracks]
+      summary: Update a team library track's metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrackBody"
+      responses:
+        "200":
+          description: Updated track
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Track"
+
+    delete:
+      operationId: deleteTeamTrack
+      tags: [tracks]
+      summary: Delete a track from a team library
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /users/me/tracks:
+    get:
+      operationId: listMyTracks
+      tags: [tracks]
+      summary: List the current user's personal library tracks
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Track list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Track"
+
+    post:
+      operationId: createMyTrack
+      tags: [tracks]
+      summary: Create a track in the current user's personal library
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrackBody"
+      responses:
+        "201":
+          description: Track created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Track"
+
+  /users/me/tracks/{trackId}:
+    patch:
+      operationId: updateMyTrack
+      tags: [tracks]
+      summary: Update a personal library track's metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrackBody"
+      responses:
+        "200":
+          description: Updated track
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Track"
+
+    delete:
+      operationId: deleteMyTrack
+      tags: [tracks]
+      summary: Delete a track from the current user's personal library
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/library/me/{trackId}:
+    post:
+      operationId: addMyTrackToProject
+      tags: [tracks]
+      summary: Move a personal library track into this project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Track moved to project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Track"
+
+  /projects/{projectId}/library/{trackId}:
+    post:
+      operationId: addTeamTrackToProject
+      tags: [tracks]
+      summary: Assign a team library track to this project's library
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: trackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated track
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Track"
+        "403":
+          description: Forbidden
+        "404":
+          description: Track not found
+
+  /teams/{teamId}/refresh-invite:
+    post:
+      operationId: refreshTeamInvite
+      tags: [teams]
+      summary: Regenerate team invite token (admin+)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: New invite token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamSummary"
+        "403":
+          description: Forbidden
+
+  /join/{token}:
+    get:
+      operationId: getJoinInfo
+      tags: [join]
+      summary: Get team info for an invite link (no auth required)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Team join info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinTeamInfo"
+        "404":
+          description: Invalid or expired invite link
+
+    post:
+      operationId: joinTeamViaInvite
+      tags: [join]
+      summary: Join a team via invite link
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Joined team (or already a member)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamSummary"
+        "404":
+          description: Invalid invite link
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        clerkId:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - clerkId
+        - email
+        - displayName
+        - avatarUrl
+        - createdAt
+
+    UpsertUserBody:
+      type: object
+      properties:
+        email:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+      required:
+        - email
+        - displayName
+
+    ProjectSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        coverImageUrl:
+          type: ["string", "null"]
+        shareToken:
+          type: string
+        teamId:
+          type: ["string", "null"]
+        sharedSequenceIds:
+          type: ["array", "null"]
+          items:
+            type: string
+        memberOnly:
+          type: boolean
+        trackCount:
+          type: integer
+        sequenceCount:
+          type: integer
+        role:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - title
+        - description
+        - coverImageUrl
+        - shareToken
+        - teamId
+        - sharedSequenceIds
+        - memberOnly
+        - trackCount
+        - sequenceCount
+        - role
+        - createdAt
+        - updatedAt
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        coverImageUrl:
+          type: ["string", "null"]
+        shareToken:
+          type: string
+        teamId:
+          type: ["string", "null"]
+        sharedSequenceIds:
+          type: ["array", "null"]
+          items:
+            type: string
+        memberOnly:
+          type: boolean
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - title
+        - description
+        - coverImageUrl
+        - shareToken
+        - teamId
+        - sharedSequenceIds
+        - memberOnly
+        - createdBy
+        - createdAt
+        - updatedAt
+
+    CreateProjectBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        coverImageUrl:
+          type: ["string", "null"]
+        teamId:
+          type: ["string", "null"]
+      required:
+        - title
+
+    TeamSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+        memberCount:
+          type: integer
+        role:
+          type: string
+        inviteToken:
+          type: ["string", "null"]
+      required:
+        - id
+        - name
+        - imageUrl
+        - createdBy
+        - createdAt
+        - memberCount
+        - role
+        - inviteToken
+
+    JoinTeamInfo:
+      type: object
+      properties:
+        teamId:
+          type: string
+        teamName:
+          type: string
+        memberCount:
+          type: integer
+        createdBy:
+          type: string
+      required:
+        - teamId
+        - teamName
+        - memberCount
+        - createdBy
+
+    TeamMember:
+      type: object
+      properties:
+        inviteId:
+          type: ["string", "null"]
+        pending:
+          type: boolean
+        userId:
+          type: ["string", "null"]
+        email:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        role:
+          type: string
+        invitedAt:
+          type: string
+      required:
+        - inviteId
+        - pending
+        - userId
+        - email
+        - displayName
+        - avatarUrl
+        - role
+        - invitedAt
+
+    CreateTeamBody:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    UpdateTeamBody:
+      type: object
+      properties:
+        name:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+
+    AddTeamMemberBody:
+      type: object
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+      required:
+        - email
+
+    UpdateTeamMemberBody:
+      type: object
+      properties:
+        role:
+          type: string
+      required:
+        - role
+
+    UpdateProjectBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        coverImageUrl:
+          type: ["string", "null"]
+        sharedSequenceIds:
+          type: ["array", "null"]
+          items:
+            type: string
+        memberOnly:
+          type: boolean
+
+    ProjectMember:
+      type: object
+      properties:
+        userId:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        role:
+          type: string
+        invitedAt:
+          type: string
+      required:
+        - userId
+        - email
+        - displayName
+        - avatarUrl
+        - role
+        - invitedAt
+
+    AddMemberBody:
+      type: object
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+      required:
+        - email
+
+    Track:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: ["string", "null"]
+        teamId:
+          type: ["string", "null"]
+        title:
+          type: string
+        fileUrl:
+          type: string
+        coverImageUrl:
+          type: ["string", "null"]
+        durationSeconds:
+          type: ["number", "null"]
+        bpm:
+          type: ["number", "null"]
+        camelotKey:
+          type: ["string", "null"]
+        analyzed:
+          type: boolean
+        uploadedBy:
+          type: string
+        uploaderName:
+          type: ["string", "null"]
+        uploaderAvatarUrl:
+          type: ["string", "null"]
+        projectTitle:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - teamId
+        - title
+        - fileUrl
+        - coverImageUrl
+        - durationSeconds
+        - bpm
+        - camelotKey
+        - analyzed
+        - uploadedBy
+        - uploaderName
+        - uploaderAvatarUrl
+        - projectTitle
+        - createdAt
+
+    CreateTrackBody:
+      type: object
+      properties:
+        title:
+          type: string
+        fileUrl:
+          type: string
+        coverImageUrl:
+          type: ["string", "null"]
+        durationSeconds:
+          type: ["number", "null"]
+        bpm:
+          type: ["number", "null"]
+        camelotKey:
+          type: ["string", "null"]
+        analyzed:
+          type: boolean
+      required:
+        - title
+        - fileUrl
+
+    UpdateTrackBody:
+      type: object
+      properties:
+        title:
+          type: string
+        bpm:
+          type: ["number", "null"]
+        camelotKey:
+          type: ["string", "null"]
+        durationSeconds:
+          type: ["number", "null"]
+        analyzed:
+          type: boolean
+        coverImageUrl:
+          type: ["string", "null"]
+
+    Sequence:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        name:
+          type: string
+        linerNotes:
+          type: ["string", "null"]
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        trackCount:
+          type: integer
+      required:
+        - id
+        - projectId
+        - name
+        - linerNotes
+        - createdBy
+        - createdAt
+        - updatedAt
+        - trackCount
+
+    SequenceWithTracks:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        name:
+          type: string
+        linerNotes:
+          type: ["string", "null"]
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        tracks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SequenceTrack"
+      required:
+        - id
+        - projectId
+        - name
+        - linerNotes
+        - createdBy
+        - createdAt
+        - updatedAt
+        - tracks
+
+    SequenceTrack:
+      type: object
+      properties:
+        id:
+          type: string
+        trackId:
+          type: string
+        orderIndex:
+          type: number
+        title:
+          type: string
+        fileUrl:
+          type: string
+        durationSeconds:
+          type: ["number", "null"]
+        bpm:
+          type: ["number", "null"]
+        camelotKey:
+          type: ["string", "null"]
+        analyzed:
+          type: boolean
+      required:
+        - id
+        - trackId
+        - orderIndex
+        - title
+        - fileUrl
+        - durationSeconds
+        - bpm
+        - camelotKey
+        - analyzed
+
+    CreateSequenceBody:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    UpdateSequenceBody:
+      type: object
+      properties:
+        name:
+          type: string
+        linerNotes:
+          type: ["string", "null"]
+
+    AddTrackToSequenceBody:
+      type: object
+      properties:
+        trackId:
+          type: string
+      required:
+        - trackId
+
+    ReorderTracksBody:
+      type: object
+      properties:
+        orderedTrackIds:
+          type: array
+          items:
+            type: string
+      required:
+        - orderedTrackIds
+
+    RequestUploadUrlBody:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+      required:
+        - name
+        - size
+        - contentType
+
+    RequestUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - uploadURL
+        - objectPath
+
+    SharedProject:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        coverImageUrl:
+          type: ["string", "null"]
+        teamId:
+          type: ["string", "null"]
+        teamName:
+          type: ["string", "null"]
+        teamImageUrl:
+          type: ["string", "null"]
+        teamInviteToken:
+          type: ["string", "null"]
+        viewerHasAccess:
+          type: boolean
+        sequences:
+          type: array
+          items:
+            $ref: "#/components/schemas/SequenceWithTracks"
+        tracks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Track"
+      required:
+        - id
+        - title
+        - description
+        - coverImageUrl
+        - teamId
+        - teamName
+        - teamImageUrl
+        - teamInviteToken
+        - viewerHasAccess
+        - sequences
+        - tracks
+
+    TrackStreamUrl:
+      type: object
+      properties:
+        streamUrl:
+          type: string
+      required:
+        - streamUrl

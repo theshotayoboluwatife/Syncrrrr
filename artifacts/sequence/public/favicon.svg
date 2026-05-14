@@ -1,0 +1,11 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="#121212"/>
+  <!-- Waveform bars shaped into a play-button envelope (tallest in middle-right) -->
+  <rect x="4"  y="15" width="3" height="2"  rx="1" fill="white"/>
+  <rect x="9"  y="12" width="3" height="8"  rx="1" fill="white"/>
+  <rect x="14" y="8"  width="3" height="16" rx="1" fill="white"/>
+  <rect x="19" y="11" width="3" height="10" rx="1" fill="white"/>
+  <rect x="24" y="14" width="3" height="4"  rx="1" fill="white"/>
+  <!-- Green accent dot for branding -->
+  <circle cx="27" cy="6" r="3" fill="#1DB954"/>
+</svg>

@@ -1,0 +1,512 @@
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useLocation } from "wouter";
+import { motion } from "framer-motion";
+import { useUser } from "@clerk/react";
+import { useGetSharedProject, useListTeams } from "@workspace/api-client-react";
+import type { SequenceTrack } from "@workspace/api-client-react";
+import { Logo } from "@/components/Logo";
+import { ProjectCover } from "@/lib/svg-generator";
+import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
+import { audioCacheService } from "@/lib/audio-cache";
+import { SharedProjectWelcomeModal } from "@/components/SharedProjectWelcomeModal";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function formatDuration(s: number | null | undefined) {
+  if (s == null || isNaN(s)) return null;
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+function EqualizerBars({ isPlaying }: { isPlaying: boolean }) {
+  return (
+    <svg width="11" height="10" viewBox="0 0 11 10" className="flex-shrink-0" aria-hidden>
+      {isPlaying ? (
+        <>
+          <rect x="0" y="0" width="2.2" height="10" fill="#4ade80" rx="1">
+            <animate attributeName="height" values="10;3;8;3;10" dur="1s" repeatCount="indefinite" />
+            <animate attributeName="y" values="0;3.5;1;3.5;0" dur="1s" repeatCount="indefinite" />
+          </rect>
+          <rect x="4.4" y="0" width="2.2" height="10" fill="#4ade80" rx="1">
+            <animate attributeName="height" values="4;10;5;9;4" dur="0.75s" repeatCount="indefinite" />
+            <animate attributeName="y" values="3;0;2.5;0.5;3" dur="0.75s" repeatCount="indefinite" />
+          </rect>
+          <rect x="8.8" y="0" width="2.2" height="10" fill="#4ade80" rx="1">
+            <animate attributeName="height" values="7;3;10;4;7" dur="0.9s" repeatCount="indefinite" />
+            <animate attributeName="y" values="1.5;3.5;0;3;1.5" dur="0.9s" repeatCount="indefinite" />
+          </rect>
+        </>
+      ) : (
+        <>
+          <rect x="0" y="4" width="2.2" height="3" fill="#4ade80" rx="1" opacity="0.55" />
+          <rect x="4.4" y="2" width="2.2" height="6" fill="#4ade80" rx="1" opacity="0.55" />
+          <rect x="8.8" y="5" width="2.2" height="2" fill="#4ade80" rx="1" opacity="0.55" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+export function SharedProject() {
+  const { shareToken } = useParams<{ shareToken: string }>();
+  const [, navigate] = useLocation();
+  const { data: project, isLoading, isError } = useGetSharedProject(shareToken);
+  const { play, currentTrack, isPlaying, pause, resume, setPlayingSource, playingSequenceId } = useAudioPlayer();
+  const [selectedSeqId, setSelectedSeqId] = useState<string | null>(null);
+  const [linerNotesOpen, setLinerNotesOpen] = useState(false);
+  const [cacheProgress, setCacheProgress] = useState<{ downloaded: number; total: number } | null>(null);
+  const cacheBatchRef = useRef<AbortController | null>(null);
+
+  // Listening is gated behind team membership: the visitor must be signed in
+  // AND belong to the team that owns the project. Anyone else sees a "join to
+  // listen" CTA that routes them through the team's invite link.
+  const { isSignedIn, isLoaded: userLoaded } = useUser();
+  const { data: myTeams } = useListTeams({ query: { enabled: !!isSignedIn } });
+  const viewerHasAccess = !!(
+    project?.teamId && isSignedIn && myTeams?.some(t => t.id === project.teamId)
+  );
+  // Where to send a viewer who clicks Play but isn't part of the team yet:
+  // - Not signed in: send to sign-up. Use ?invite=TOKEN when available so
+  //   they auto-join after signup; otherwise fall back to ?redirect=/share/X
+  //   so they at least return to this page.
+  // - Signed in but not a member: send to /join/TOKEN if we have one,
+  //   otherwise back to the dashboard with a notice.
+  const goJoin = () => {
+    const inviteToken = project?.teamInviteToken ?? null;
+    if (!isSignedIn) {
+      if (inviteToken) {
+        navigate(`/sign-up?invite=${inviteToken}`);
+      } else {
+        const back = encodeURIComponent(`/share/${shareToken}`);
+        navigate(`/sign-up?redirect=${back}`);
+      }
+      return;
+    }
+    if (inviteToken) {
+      navigate(`/join/${inviteToken}`);
+    } else {
+      // No invite token on this team — best we can do is bounce to dashboard.
+      navigate("/dashboard");
+    }
+  };
+
+  const activeSeqId = selectedSeqId || project?.sequences?.[0]?.id || null;
+  const activeSeq = project?.sequences?.find(s => s.id === activeSeqId);
+
+  // Use the explicitly-set sequence ID from context — this is set each time we
+  // start a new sequence and is unambiguous even when the same track appears in
+  // multiple sequences (which would fool a "find first match" scan).
+  const playingSeqId = playingSequenceId;
+
+  // Pre-cache tracks strategically: first track immediately, rest in order.
+  // For return visits all tracks serve as blob URLs with instant seek.
+  useEffect(() => {
+    if (!viewerHasAccess) return; // do not pre-cache audio for gated viewers
+    if (!activeSeq || activeSeq.tracks.length === 0) return;
+    cacheBatchRef.current?.abort();
+
+    const fileUrls = activeSeq.tracks.map(t => t.fileUrl);
+    const total = fileUrls.length;
+
+    // Check what's already cached so we can start the counter from the right value
+    audioCacheService.countCached(fileUrls).then(already => {
+      if (already >= total) {
+        // Everything cached — preload blob URLs silently, no indicator
+        audioCacheService.preloadSequence(fileUrls).catch(() => {});
+        return;
+      }
+
+      let downloaded = already;
+      setCacheProgress({ downloaded, total });
+
+      // Cache first track with higher urgency (solo fetch, not in batch pool)
+      audioCacheService.cacheTrack(fileUrls[0]).then(() => {
+        downloaded = Math.max(downloaded, already + 1);
+        setCacheProgress({ downloaded, total });
+      });
+
+      // Queue the rest via the batch pool
+      const rest = fileUrls.slice(1);
+      cacheBatchRef.current = audioCacheService.batchCache(rest, {
+        onProgress: (done, _batchTotal) => {
+          downloaded = already + 1 + done; // +1 for first track
+          setCacheProgress({ downloaded, total });
+          if (downloaded >= total) {
+            setTimeout(() => setCacheProgress(null), 3000);
+          }
+        },
+      });
+    });
+
+    return () => {
+      cacheBatchRef.current?.abort();
+    };
+  }, [activeSeq?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When a track finishes via the audio element, its data is cached for next time.
+  // We also pre-cache any track we start playing.
+  const playSharedTrack = (track: SequenceTrack, queue: SequenceTrack[]) => {
+    if (!viewerHasAccess) { goJoin(); return; }
+    const albumCover = project?.coverImageUrl ?? null;
+    const toPlayer = (t: SequenceTrack) => ({
+      id: t.trackId,
+      title: t.title,
+      fileUrl: t.fileUrl,
+      coverImageUrl: t.coverImageUrl ?? albumCover,
+      durationSeconds: t.durationSeconds,
+      bpm: t.bpm,
+      camelotKey: t.camelotKey,
+    });
+    const trackId = track.trackId;
+    // Toggle play/pause only when the same track is active AND it belongs to
+    // the same sequence currently in the player. If the sequence differs (even
+    // if the track ID matches because it appears in both), always start the new
+    // sequence queue from scratch.
+    if (currentTrack?.id === trackId && playingSeqId === activeSeqId) {
+      isPlaying ? pause() : resume();
+    } else {
+      // Tell the player bar which sequence this belongs to
+      if (activeSeq) {
+        setPlayingSource({ sequenceId: activeSeq.id, sequenceName: activeSeq.name });
+      }
+      play(toPlayer(track), queue.map(toPlayer));
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-screen bg-[#121212] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !project) {
+    return (
+      <div className="h-screen bg-[#121212] flex flex-col items-center justify-center text-center px-4">
+        <Logo size={36} />
+        <h1 className="text-lg font-semibold text-foreground mt-4 mb-2">Link not found</h1>
+        <p className="text-sm text-muted-foreground">This share link may have expired or been removed.</p>
+      </div>
+    );
+  }
+
+  const totalTracks = activeSeq?.tracks.length ?? 0;
+  const totalDuration = activeSeq?.tracks.reduce((sum, t) => sum + (t.durationSeconds ?? 0), 0) ?? 0;
+  const totalMins = Math.floor(totalDuration / 60);
+
+  return (
+    <div className="min-h-screen bg-[#121212] text-foreground flex flex-col pb-24">
+      {/* Hero */}
+      <div className="relative overflow-hidden">
+        {project.coverImageUrl && (
+          <div
+            className="absolute inset-0 scale-110"
+            style={{
+              backgroundImage: `url(${project.coverImageUrl})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              filter: "blur(40px) brightness(0.35)",
+            }}
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#121212]/60 to-[#121212]" />
+
+        <div className="relative z-10 px-4 pt-8 pb-6 flex flex-col items-center text-center sm:flex-row sm:items-end sm:text-left sm:px-8 sm:pt-12 sm:pb-8 gap-6 sm:gap-8 max-w-4xl mx-auto w-full">
+          <div className="w-44 h-44 sm:w-56 sm:h-56 rounded-lg overflow-hidden shadow-2xl flex-shrink-0">
+            <ProjectCover coverImageUrl={project.coverImageUrl} fill size={224} />
+          </div>
+
+          <div className="flex flex-col gap-2 sm:pb-2 min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Album</p>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight">
+              {project.title}
+            </h1>
+            {project.description && (
+              <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+            )}
+
+            {project.teamName && (
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0">
+                  {project.teamImageUrl ? (
+                    <img src={project.teamImageUrl!} alt={project.teamName} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-muted-foreground">
+                        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <span className="text-sm font-semibold text-white">{project.teamName}</span>
+                {totalTracks > 0 && (
+                  <>
+                    <span className="text-muted-foreground text-sm">·</span>
+                    <span className="text-sm text-muted-foreground">
+                      {totalTracks} {totalTracks === 1 ? "track" : "tracks"}
+                      {totalMins > 0 && `, ${totalMins} min`}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="px-4 sm:px-8 max-w-4xl mx-auto w-full">
+        {/* Sequence tabs */}
+        {project.sequences.length > 1 && (
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+            {project.sequences.map(seq => {
+              const isViewing = seq.id === activeSeqId;
+              const isPlayingFrom = seq.id === playingSeqId;
+              return (
+                <button
+                  key={seq.id}
+                  onClick={() => setSelectedSeqId(seq.id)}
+                  className={`text-sm px-4 py-2 rounded-full whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1.5 ${
+                    isViewing
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : "bg-white/10 text-muted-foreground hover:text-foreground hover:bg-white/15"
+                  }`}
+                >
+                  {seq.name}
+                  {isPlayingFrom && !isViewing && (
+                    <EqualizerBars isPlaying={isPlaying} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Play button */}
+        {activeSeq && activeSeq.tracks.length > 0 && (() => {
+          const seqIsInPlayer = playingSeqId === activeSeqId;
+          const seqIsPlaying = seqIsInPlayer && isPlaying;
+          return (
+            <div className="flex items-center gap-4 mb-5 mt-2">
+              <button
+                onClick={() => {
+                  if (!viewerHasAccess) { goJoin(); return; }
+                  if (seqIsInPlayer) {
+                    isPlaying ? pause() : resume();
+                  } else {
+                    playSharedTrack(activeSeq.tracks[0], activeSeq.tracks);
+                  }
+                }}
+                className="w-14 h-14 rounded-full bg-primary flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-primary/30 flex-shrink-0"
+                title={!viewerHasAccess ? `Join ${project.teamName ?? "the team"} to listen` : seqIsPlaying ? "Pause" : "Play"}
+              >
+                {!viewerHasAccess ? (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="black">
+                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/>
+                  </svg>
+                ) : seqIsPlaying ? (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="black">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                  </svg>
+                ) : (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="black">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* Liner Notes — shown first before track list */}
+        {activeSeq?.linerNotes && (
+          <div className="mb-6 rounded-xl bg-white/[0.04] border border-white/[0.09] overflow-hidden">
+            {/* Header row */}
+            <button
+              onClick={() => setLinerNotesOpen(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-white/[0.04] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-primary">
+                    <path d="M12 3a9 9 0 1 0 0 18A9 9 0 0 0 12 3zm0 2a7 7 0 1 1 0 14A7 7 0 0 1 12 5zm0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>
+                  </svg>
+                </span>
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-foreground/80">
+                  Liner Notes
+                </span>
+              </div>
+              {/* Visible pill toggle */}
+              <span className={`w-7 h-7 rounded-full bg-white/[0.08] flex items-center justify-center transition-transform duration-200 flex-shrink-0 ${linerNotesOpen ? "rotate-180" : ""}`}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" className="text-foreground/70">
+                  <path d="M7 10l5 5 5-5z"/>
+                </svg>
+              </span>
+            </button>
+
+            {/* Mobile: always shows 2-line clamp teaser; Desktop: accordion */}
+            <div
+              className={`px-4 text-sm text-[#b8b8b8] tracking-[0.01em] sm:hidden ${
+                linerNotesOpen
+                  ? "pb-4 leading-7 whitespace-pre-wrap overflow-hidden"
+                  : "pb-2 leading-snug liner-notes-clamp"
+              }`}
+            >
+              {activeSeq.linerNotes}
+            </div>
+            <div className="hidden sm:block">
+              {linerNotesOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className="px-4 pb-4"
+                >
+                  <p className="text-sm leading-7 text-[#b8b8b8] whitespace-pre-wrap tracking-[0.01em]">
+                    {activeSeq.linerNotes}
+                  </p>
+                </motion.div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Track list */}
+        {activeSeq && (
+          <motion.div
+            key={activeSeq.id}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {activeSeq.tracks.length > 0 && (
+              <div className="flex items-center gap-3 px-3 sm:px-4 pb-2 border-b border-white/10 mb-1">
+                <span className="w-8 text-center text-xs text-muted-foreground flex-shrink-0">#</span>
+                <span className="flex-1 text-xs text-muted-foreground">Title</span>
+                {cacheProgress && cacheProgress.downloaded < cacheProgress.total && (
+                  <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                    <span className="w-2.5 h-2.5 rounded-full border border-muted-foreground/40 border-t-transparent animate-spin inline-block" />
+                    {cacheProgress.downloaded}/{cacheProgress.total}
+                  </span>
+                )}
+                {cacheProgress && cacheProgress.downloaded >= cacheProgress.total && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-primary">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                )}
+                <span className="hidden sm:block w-20 text-right text-xs text-muted-foreground flex-shrink-0">Duration</span>
+              </div>
+            )}
+
+            <div>
+              {activeSeq.tracks.map((track, i) => {
+                const id = track.trackId;
+                const isActive = currentTrack?.id === id;
+                const dur = formatDuration(track.durationSeconds);
+                return (
+                  <button
+                    key={id}
+                    onClick={() => playSharedTrack(track, activeSeq.tracks)}
+                    className={`w-full flex items-center gap-3 px-3 sm:px-4 py-3 rounded-md group text-left transition-colors ${
+                      isActive ? "bg-white/10" : "hover:bg-white/5"
+                    }`}
+                  >
+                    {/* Number / play icon */}
+                    <div className="w-8 flex items-center justify-center flex-shrink-0 relative">
+                      <span className={`text-sm tabular-nums transition-opacity ${isActive ? (isPlaying ? "opacity-0" : "text-primary") : "text-muted-foreground group-hover:opacity-0"}`}>
+                        {i + 1}
+                      </span>
+                      <span className={`absolute inset-0 flex items-center justify-center transition-opacity ${(isActive && isPlaying) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+                        {isActive && isPlaying ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-primary">
+                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-white">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Cover art thumbnail — prefer per-track embedded art, fall back to album cover */}
+                    <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
+                      <ProjectCover coverImageUrl={track.coverImageUrl ?? project.coverImageUrl} size={40} />
+                    </div>
+
+                    {/* Title */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-white"}`}>
+                        {track.title}
+                      </p>
+                    </div>
+
+                    {/* Duration */}
+                    <span className="hidden sm:block text-xs text-muted-foreground tabular-nums w-12 text-right flex-shrink-0">
+                      {dur ?? "—"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {project.sequences.length === 0 && (
+          <div className="text-center py-16 text-muted-foreground text-sm">
+            No sequences in this project yet.
+          </div>
+        )}
+      </div>
+
+      {/* Footer branding */}
+      <div className="mt-auto pt-8 px-4 sm:px-8 max-w-4xl mx-auto w-full">
+        <div className="flex items-center gap-2 border-t border-white/10 pt-6">
+          <Logo size={16} />
+          <span className="text-xs text-muted-foreground">Powered by Syncr</span>
+        </div>
+      </div>
+
+      {/* Gating banner: shown to anyone who isn't a member of the project's team */}
+      {userLoaded && !viewerHasAccess && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 sm:pb-6 pointer-events-none">
+          <div className="max-w-2xl mx-auto pointer-events-auto bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+              {project.teamImageUrl ? (
+                <img src={project.teamImageUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <Logo size={18} />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">
+                {project.teamName ?? "This team"} has shared a project
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {isSignedIn ? "Join them to listen" : "Sign up to listen"}
+              </p>
+            </div>
+            <button
+              onClick={goJoin}
+              className="text-xs font-bold uppercase tracking-wide bg-primary text-primary-foreground px-4 py-2 rounded-full hover:opacity-90 transition-opacity flex-shrink-0"
+            >
+              {isSignedIn ? "Join" : "Sign up"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <SharedProjectWelcomeModal
+        shareToken={shareToken}
+        teamName={project.teamName ?? null}
+        teamImageUrl={project.teamImageUrl ?? null}
+        projectTitle={project.title}
+      />
+    </div>
+  );
+}
