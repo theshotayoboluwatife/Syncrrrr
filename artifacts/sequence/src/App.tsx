@@ -18,8 +18,8 @@ import { PersonalLibrary } from "@/pages/PersonalLibrary";
 import { Profile } from "@/pages/Profile";
 import { SignInPage } from "@/pages/SignInPage";
 import { SignUpPage } from "@/pages/SignUpPage";
+import { AuthCallback } from "@/pages/AuthCallback";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -113,6 +113,7 @@ function AppShell() {
         <Route path="/" component={HomeRoute} />
         <Route path="/sign-in" component={SignInPage} />
         <Route path="/sign-up" component={SignUpPage} />
+        <Route path="/auth/callback" component={AuthCallback} />
         <Route path="/join/:token" component={JoinTeam} />
         <Route path="/share/:shareToken">
           <WithPlayer>

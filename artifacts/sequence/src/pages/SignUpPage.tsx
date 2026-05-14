@@ -60,7 +60,7 @@ export function SignUpPage() {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}${basePath}${afterUrl}`,
+        emailRedirectTo: `${window.location.origin}${basePath}/auth/callback`,
       },
     });
     setLoading(false);
