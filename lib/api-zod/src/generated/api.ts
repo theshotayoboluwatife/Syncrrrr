@@ -19,7 +19,7 @@ export const HealthCheckResponse = zod.object({
  */
 export const GetMeResponse = zod.object({
   id: zod.string(),
-  clerkId: zod.string(),
+  supabaseId: zod.string(),
   email: zod.string(),
   displayName: zod.string(),
   avatarUrl: zod.string().nullable(),
@@ -37,7 +37,7 @@ export const UpsertMeBody = zod.object({
 
 export const UpsertMeResponse = zod.object({
   id: zod.string(),
-  clerkId: zod.string(),
+  supabaseId: zod.string(),
   email: zod.string(),
   displayName: zod.string(),
   avatarUrl: zod.string().nullable(),

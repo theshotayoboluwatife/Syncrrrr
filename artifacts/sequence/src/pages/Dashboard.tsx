@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useUser, useClerk } from "@clerk/react";
+import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   useListProjects, useCreateProject, getListProjectsQueryKey,
@@ -112,7 +112,7 @@ function CreateTeamDialog({ onClose, onCreated }: { onClose: () => void; onCreat
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            placeholder="Tedd Music"
+            placeholder="Team name"
             className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
           />
         </div>
@@ -195,8 +195,7 @@ function ProjectCard({ project, onClick, index }: { project: any; onClick: () =>
 
 export function Dashboard() {
   const [, navigate] = useLocation();
-  const { user } = useUser();
-  const { signOut } = useClerk();
+  const { user, signOut } = useAuth();
   const { data: projects, isLoading } = useListProjects();
   const { data: teams, isLoading: teamsLoading } = useListTeams();
   const queryClient = useQueryClient();
@@ -228,7 +227,11 @@ export function Dashboard() {
     setSelectedWorkspaceId(team.id);
   };
 
-  const displayName = user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "User";
+  const displayName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
+    "User";
 
   return (
     <div className="h-full bg-background flex overflow-hidden">
@@ -253,10 +256,10 @@ export function Dashboard() {
             }`}
           >
             <div className="w-8 h-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-foreground flex-shrink-0">
-              {user?.imageUrl ? (
-                <img src={user.imageUrl} alt="" className="w-full h-full object-cover" />
+              {user?.user_metadata?.avatar_url ? (
+                <img src={user?.user_metadata?.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                (user?.firstName?.[0] || "U").toUpperCase()
+                (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "U").toUpperCase()
               )}
             </div>
             <span className="truncate font-medium">Personal</span>
@@ -316,10 +319,10 @@ export function Dashboard() {
               title="Account & settings"
             >
               <div className="w-6 h-6 rounded-full bg-muted overflow-hidden flex items-center justify-center text-[10px] font-semibold text-foreground flex-shrink-0">
-                {user?.imageUrl ? (
-                  <img src={user.imageUrl} alt="" className="w-full h-full object-cover" />
+                {user?.user_metadata?.avatar_url ? (
+                  <img src={user?.user_metadata?.avatar_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  (user?.firstName?.[0] || "U").toUpperCase()
+                  (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "U").toUpperCase()
                 )}
               </div>
               <span className="truncate">{displayName}</span>
@@ -370,10 +373,10 @@ export function Dashboard() {
               className="w-8 h-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-foreground flex-shrink-0"
               title="Account & settings"
             >
-              {user?.imageUrl ? (
-                <img src={user.imageUrl} alt="" className="w-full h-full object-cover" />
+              {user?.user_metadata?.avatar_url ? (
+                <img src={user?.user_metadata?.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                (user?.firstName?.[0] || "U").toUpperCase()
+                (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "U").toUpperCase()
               )}
             </button>
           </div>
@@ -405,10 +408,10 @@ export function Dashboard() {
             }`}
           >
             <div className="w-4 h-4 rounded-full bg-muted overflow-hidden flex items-center justify-center text-[10px]">
-              {user?.imageUrl ? (
-                <img src={user.imageUrl} alt="" className="w-full h-full object-cover" />
+              {user?.user_metadata?.avatar_url ? (
+                <img src={user?.user_metadata?.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                (user?.firstName?.[0] || "U").toUpperCase()
+                (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "U").toUpperCase()
               )}
             </div>
             Personal

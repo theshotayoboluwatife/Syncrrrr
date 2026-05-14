@@ -1,20 +1,21 @@
 import { useLocation } from "wouter";
-import { UserProfile, useClerk, useUser } from "@clerk/react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/Logo";
 
 export function Profile() {
   const [, navigate] = useLocation();
-  const { signOut } = useClerk();
-  const { user } = useUser();
+  const { signOut, user } = useAuth();
   const displayName =
-    user?.fullName ||
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
-    user?.primaryEmailAddress?.emailAddress ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email ||
     "Your account";
+
+  const avatarUrl = user?.user_metadata?.avatar_url;
+  const initial = (displayName[0] || "U").toUpperCase();
 
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
@@ -35,7 +36,7 @@ export function Profile() {
           </div>
         </div>
         <button
-          onClick={() => signOut(() => navigate("/"))}
+          onClick={async () => { await signOut(); navigate("/"); }}
           className="flex items-center gap-2 text-xs text-muted-foreground hover:text-destructive border border-border/60 hover:border-destructive/40 px-3 py-1.5 rounded-full transition-colors"
           title="Sign out"
         >
@@ -46,10 +47,19 @@ export function Profile() {
         </button>
       </div>
 
-      {/* Clerk profile UI */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 flex justify-center">
-          <UserProfile routing="virtual" />
+        <div className="max-w-lg mx-auto px-4 sm:px-6 py-8 space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xl font-bold text-foreground flex-shrink-0">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : initial}
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">{displayName}</p>
+              <p className="text-sm text-muted-foreground">{user?.email}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

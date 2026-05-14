@@ -1,12 +1,12 @@
 import { Router, type IRouter } from "express";
 import { eq, and, sql } from "drizzle-orm";
 import { db, teamsTable, teamMembersTable, teamInvitesTable, usersTable } from "@workspace/db";
-import { requireAuth, getClerkId } from "../lib/auth";
+import { requireAuth, getSupabaseId } from "../lib/auth";
 
 const router: IRouter = Router();
 
-async function getUserByClerkId(clerkId: string) {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+async function getUserBySupabaseId(supabaseId: string) {
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.supabaseId, supabaseId));
   return user;
 }
 
@@ -45,8 +45,8 @@ function serializeTeam(t: typeof teamsTable.$inferSelect, role: string, memberCo
 }
 
 router.get("/teams", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const memberships = await db
@@ -74,8 +74,8 @@ router.get("/teams", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.post("/teams", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { name } = req.body;
@@ -91,8 +91,8 @@ router.post("/teams", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/teams/:teamId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { teamId } = req.params;
@@ -111,8 +111,8 @@ router.get("/teams/:teamId", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.patch("/teams/:teamId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { teamId } = req.params;
@@ -146,8 +146,8 @@ router.patch("/teams/:teamId", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.delete("/teams/:teamId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { teamId } = req.params;
@@ -159,8 +159,8 @@ router.delete("/teams/:teamId", requireAuth, async (req, res): Promise<void> => 
 });
 
 router.post("/teams/:teamId/refresh-invite", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { teamId } = req.params;
@@ -183,8 +183,8 @@ router.post("/teams/:teamId/refresh-invite", requireAuth, async (req, res): Prom
 });
 
 router.get("/teams/:teamId/members", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { teamId } = req.params;
@@ -238,8 +238,8 @@ router.get("/teams/:teamId/members", requireAuth, async (req, res): Promise<void
 });
 
 router.post("/teams/:teamId/members", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { teamId } = req.params;
@@ -314,8 +314,8 @@ router.post("/teams/:teamId/members", requireAuth, async (req, res): Promise<voi
 });
 
 router.patch("/teams/:teamId/members/:userId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { teamId, userId } = req.params;
@@ -355,8 +355,8 @@ router.patch("/teams/:teamId/members/:userId", requireAuth, async (req, res): Pr
 });
 
 router.delete("/teams/:teamId/members/:userId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { teamId, userId } = req.params;
@@ -387,8 +387,8 @@ router.delete("/teams/:teamId/members/:userId", requireAuth, async (req, res): P
 });
 
 router.delete("/teams/:teamId/invites/:inviteId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { teamId, inviteId } = req.params;
@@ -427,8 +427,8 @@ router.get("/join/:token", async (req, res): Promise<void> => {
 });
 
 router.post("/join/:token", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { token } = req.params;

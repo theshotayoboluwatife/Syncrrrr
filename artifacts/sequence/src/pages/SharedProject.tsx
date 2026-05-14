@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { useUser } from "@clerk/react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useGetSharedProject, useListTeams } from "@workspace/api-client-react";
 import type { SequenceTrack } from "@workspace/api-client-react";
 import { Logo } from "@/components/Logo";
@@ -61,7 +61,7 @@ export function SharedProject() {
   // Listening is gated behind team membership: the visitor must be signed in
   // AND belong to the team that owns the project. Anyone else sees a "join to
   // listen" CTA that routes them through the team's invite link.
-  const { isSignedIn, isLoaded: userLoaded } = useUser();
+  const { isSignedIn, isLoaded: userLoaded } = useAuth();
   const { data: myTeams } = useListTeams({ query: { enabled: !!isSignedIn } });
   const viewerHasAccess = !!(
     project?.teamId && isSignedIn && myTeams?.some(t => t.id === project.teamId)

@@ -27,12 +27,12 @@ import {
   DeleteMyTrackParams,
   ListMyTracksResponse,
 } from "@workspace/api-zod";
-import { requireAuth, getClerkId } from "../lib/auth";
+import { requireAuth, getSupabaseId } from "../lib/auth";
 
 const router: IRouter = Router();
 
-async function getUserByClerkId(clerkId: string) {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+async function getUserBySupabaseId(supabaseId: string) {
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.supabaseId, supabaseId));
   return user;
 }
 
@@ -138,8 +138,8 @@ async function enrichOne(row: typeof tracksTable.$inferSelect): Promise<Enriched
 // ── Project-scoped tracks ─────────────────────────────────────────────────────
 
 router.get("/projects/:projectId/tracks", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = ListTracksParams.safeParse(req.params);
@@ -159,8 +159,8 @@ router.get("/projects/:projectId/tracks", requireAuth, async (req, res): Promise
 });
 
 router.post("/projects/:projectId/tracks", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = CreateTrackParams.safeParse(req.params);
@@ -198,8 +198,8 @@ router.post("/projects/:projectId/tracks", requireAuth, async (req, res): Promis
 });
 
 router.patch("/projects/:projectId/tracks/:trackId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = UpdateTrackParams.safeParse(req.params);
@@ -243,8 +243,8 @@ router.patch("/projects/:projectId/tracks/:trackId", requireAuth, async (req, re
 });
 
 router.delete("/projects/:projectId/tracks/:trackId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = DeleteTrackParams.safeParse(req.params);
@@ -281,8 +281,8 @@ router.delete("/projects/:projectId/tracks/:trackId", requireAuth, async (req, r
 // ── Add team library track into a specific project's library ─────────────────
 
 router.post("/projects/:projectId/library/:trackId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = AddTeamTrackToProjectParams.safeParse(req.params);
@@ -336,8 +336,8 @@ router.post("/projects/:projectId/library/:trackId", requireAuth, async (req, re
 // ── Add personal library track into a specific project's library ─────────────
 
 router.post("/projects/:projectId/library/me/:trackId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = AddMyTrackToProjectParams.safeParse(req.params);
@@ -377,8 +377,8 @@ router.post("/projects/:projectId/library/me/:trackId", requireAuth, async (req,
 // ── Team-scoped tracks (shared library) ──────────────────────────────────────
 
 router.get("/teams/:teamId/tracks", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = ListTeamTracksParams.safeParse(req.params);
@@ -398,8 +398,8 @@ router.get("/teams/:teamId/tracks", requireAuth, async (req, res): Promise<void>
 });
 
 router.post("/teams/:teamId/tracks", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = CreateTeamTrackParams.safeParse(req.params);
@@ -431,8 +431,8 @@ router.post("/teams/:teamId/tracks", requireAuth, async (req, res): Promise<void
 });
 
 router.patch("/teams/:teamId/tracks/:trackId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = UpdateTeamTrackParams.safeParse(req.params);
@@ -471,8 +471,8 @@ router.patch("/teams/:teamId/tracks/:trackId", requireAuth, async (req, res): Pr
 });
 
 router.delete("/teams/:teamId/tracks/:trackId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = DeleteTeamTrackParams.safeParse(req.params);
@@ -491,8 +491,8 @@ router.delete("/teams/:teamId/tracks/:trackId", requireAuth, async (req, res): P
 // ── Personal library (tracks owned by user, not in any team or project) ─────
 
 router.get("/users/me/tracks", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const tracks = await db
@@ -510,8 +510,8 @@ router.get("/users/me/tracks", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.post("/users/me/tracks", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const parsed = CreateMyTrackBody.safeParse(req.body);
@@ -537,8 +537,8 @@ router.post("/users/me/tracks", requireAuth, async (req, res): Promise<void> => 
 });
 
 router.patch("/users/me/tracks/:trackId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = UpdateMyTrackParams.safeParse(req.params);
@@ -571,8 +571,8 @@ router.patch("/users/me/tracks/:trackId", requireAuth, async (req, res): Promise
 });
 
 router.delete("/users/me/tracks/:trackId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = DeleteMyTrackParams.safeParse(req.params);

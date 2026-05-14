@@ -8,7 +8,7 @@
 
 export interface User {
   id: string;
-  clerkId: string;
+  supabaseId: string;
   email: string;
   displayName: string;
   /** @nullable */

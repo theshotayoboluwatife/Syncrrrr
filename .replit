@@ -57,3 +57,9 @@ externalPort = 5173
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+VITE_SUPABASE_URL = "USE_SECRET_SUPABASE_URL"
+VITE_SUPABASE_ANON_KEY = "USE_SECRET_SUPABASE_ANON_KEY"

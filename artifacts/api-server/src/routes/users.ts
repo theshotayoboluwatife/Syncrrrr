@@ -2,13 +2,13 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, usersTable, teamInvitesTable, teamMembersTable } from "@workspace/db";
 import { UpsertMeBody, GetMeResponse, UpsertMeResponse } from "@workspace/api-zod";
-import { requireAuth, getClerkId } from "../lib/auth";
+import { requireAuth, getSupabaseId } from "../lib/auth";
 
 const router: IRouter = Router();
 
 router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+  const supabaseId = getSupabaseId(req);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.supabaseId, supabaseId));
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
@@ -17,14 +17,14 @@ router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.put("/users/me", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
+  const supabaseId = getSupabaseId(req);
   const parsed = UpsertMeBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  const [existing] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.supabaseId, supabaseId));
 
   function serializeUser(u: typeof existing) {
     return UpsertMeResponse.parse({
@@ -42,7 +42,7 @@ router.put("/users/me", requireAuth, async (req, res): Promise<void> => {
         displayName: parsed.data.displayName,
         avatarUrl: parsed.data.avatarUrl ?? null,
       })
-      .where(eq(usersTable.clerkId, clerkId))
+      .where(eq(usersTable.supabaseId, supabaseId))
       .returning();
     res.json(serializeUser(updated));
     return;
@@ -51,7 +51,7 @@ router.put("/users/me", requireAuth, async (req, res): Promise<void> => {
   const [created] = await db
     .insert(usersTable)
     .values({
-      clerkId,
+      supabaseId,
       email: parsed.data.email,
       displayName: parsed.data.displayName,
       avatarUrl: parsed.data.avatarUrl ?? null,

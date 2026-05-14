@@ -72,7 +72,7 @@ export function SharedProjectWelcomeModal({ shareToken, teamName, teamImageUrl, 
             {/* Team name + share message */}
             <h2 className="text-base font-semibold text-white mb-1">{teamName ?? "A music team"}</h2>
             <p className="text-sm text-[#a7a7a7] mb-5 leading-relaxed">
-              has shared a project with you. Join them to listen.
+              has shared a project with you.
             </p>
 
             {/* Project card */}

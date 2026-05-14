@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useParams, useLocation } from "wouter";
-import { useUser } from "@clerk/react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   useGetTeam,
   useUpdateTeam,
@@ -53,7 +53,7 @@ function RoleBadge({ role }: { role: string }) {
 export function TeamSettings() {
   const { teamId } = useParams<{ teamId: string }>();
   const [, navigate] = useLocation();
-  useUser();
+  useAuth();
   const queryClient = useQueryClient();
 
   const { data: team, isLoading: teamLoading } = useGetTeam(teamId);

@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "wouter";
-import { useUser } from "@clerk/react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useGetJoinInfo, useJoinTeamViaInvite } from "@workspace/api-client-react";
 import { Logo } from "@/components/Logo";
 
@@ -31,7 +31,7 @@ function TeamAvatar({ name, size = 64 }: { name: string; size?: number }) {
 export function JoinTeam() {
   const { token } = useParams<{ token: string }>();
   const [, navigate] = useLocation();
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
   const { data: info, isLoading, error } = useGetJoinInfo(token, { query: { retry: false } });
   const joinMutation = useJoinTeamViaInvite();
 

@@ -12,12 +12,12 @@ import {
   AddProjectMemberParams,
   RemoveProjectMemberParams,
 } from "@workspace/api-zod";
-import { requireAuth, getClerkId } from "../lib/auth";
+import { requireAuth, getSupabaseId } from "../lib/auth";
 
 const router: IRouter = Router();
 
-async function getUserByClerkId(clerkId: string) {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+async function getUserBySupabaseId(supabaseId: string) {
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.supabaseId, supabaseId));
   return user;
 }
 
@@ -54,8 +54,8 @@ async function assertProjectAccess(projectId: string, userId: string, res: any):
 }
 
 router.get("/projects", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) {
     res.status(401).json({ error: "User not found, please sync" });
     return;
@@ -133,8 +133,8 @@ router.get("/projects", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.post("/projects", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) {
     res.status(401).json({ error: "User not found, please sync" });
     return;
@@ -189,8 +189,8 @@ router.post("/projects", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/projects/:projectId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = GetProjectParams.safeParse(req.params);
@@ -215,8 +215,8 @@ router.get("/projects/:projectId", requireAuth, async (req, res): Promise<void> 
 });
 
 router.patch("/projects/:projectId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = UpdateProjectParams.safeParse(req.params);
@@ -253,8 +253,8 @@ router.patch("/projects/:projectId", requireAuth, async (req, res): Promise<void
 });
 
 router.delete("/projects/:projectId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = DeleteProjectParams.safeParse(req.params);
@@ -275,8 +275,8 @@ router.delete("/projects/:projectId", requireAuth, async (req, res): Promise<voi
 });
 
 router.get("/projects/:projectId/members", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = ListProjectMembersParams.safeParse(req.params);
@@ -306,8 +306,8 @@ router.get("/projects/:projectId/members", requireAuth, async (req, res): Promis
 });
 
 router.post("/projects/:projectId/members", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = AddProjectMemberParams.safeParse(req.params);
@@ -355,8 +355,8 @@ router.post("/projects/:projectId/members", requireAuth, async (req, res): Promi
 });
 
 router.delete("/projects/:projectId/members/:userId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const currentUser = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const currentUser = await getUserBySupabaseId(supabaseId);
   if (!currentUser) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = RemoveProjectMemberParams.safeParse(req.params);

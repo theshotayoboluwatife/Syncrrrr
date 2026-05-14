@@ -16,12 +16,12 @@ import {
   ReorderSequenceTracksParams,
   ReorderSequenceTracksBody,
 } from "@workspace/api-zod";
-import { requireAuth, getClerkId } from "../lib/auth";
+import { requireAuth, getSupabaseId } from "../lib/auth";
 
 const router: IRouter = Router();
 
-async function getUserByClerkId(clerkId: string) {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+async function getUserBySupabaseId(supabaseId: string) {
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.supabaseId, supabaseId));
   return user;
 }
 
@@ -81,8 +81,8 @@ async function getSequenceWithTracks(sequenceId: string) {
 }
 
 router.get("/projects/:projectId/sequences", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = ListSequencesParams.safeParse(req.params);
@@ -120,8 +120,8 @@ router.get("/projects/:projectId/sequences", requireAuth, async (req, res): Prom
 });
 
 router.post("/projects/:projectId/sequences", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = CreateSequenceParams.safeParse(req.params);
@@ -154,8 +154,8 @@ router.post("/projects/:projectId/sequences", requireAuth, async (req, res): Pro
 });
 
 router.get("/projects/:projectId/sequences/:sequenceId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = GetSequenceParams.safeParse(req.params);
@@ -171,8 +171,8 @@ router.get("/projects/:projectId/sequences/:sequenceId", requireAuth, async (req
 });
 
 router.patch("/projects/:projectId/sequences/:sequenceId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = UpdateSequenceParams.safeParse(req.params);
@@ -213,8 +213,8 @@ router.patch("/projects/:projectId/sequences/:sequenceId", requireAuth, async (r
 });
 
 router.delete("/projects/:projectId/sequences/:sequenceId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = DeleteSequenceParams.safeParse(req.params);
@@ -228,8 +228,8 @@ router.delete("/projects/:projectId/sequences/:sequenceId", requireAuth, async (
 });
 
 router.post("/projects/:projectId/sequences/:sequenceId/duplicate", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = DuplicateSequenceParams.safeParse(req.params);
@@ -278,8 +278,8 @@ router.post("/projects/:projectId/sequences/:sequenceId/duplicate", requireAuth,
 });
 
 router.post("/projects/:projectId/sequences/:sequenceId/tracks", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = AddTrackToSequenceParams.safeParse(req.params);
@@ -310,8 +310,8 @@ router.post("/projects/:projectId/sequences/:sequenceId/tracks", requireAuth, as
 });
 
 router.delete("/projects/:projectId/sequences/:sequenceId/tracks/:trackId", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = RemoveTrackFromSequenceParams.safeParse(req.params);
@@ -332,8 +332,8 @@ router.delete("/projects/:projectId/sequences/:sequenceId/tracks/:trackId", requ
 });
 
 router.patch("/projects/:projectId/sequences/:sequenceId/reorder", requireAuth, async (req, res): Promise<void> => {
-  const clerkId = getClerkId(req);
-  const user = await getUserByClerkId(clerkId);
+  const supabaseId = getSupabaseId(req);
+  const user = await getUserBySupabaseId(supabaseId);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const params = ReorderSequenceTracksParams.safeParse(req.params);
