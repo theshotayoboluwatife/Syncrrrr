@@ -14,6 +14,23 @@ import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { analyzeAudioFile, extractCoverArt } from "@/lib/audio-analyzer";
 import { Logo } from "@/components/Logo";
 
+function fmtDuration(s: number | null | undefined) {
+  if (s == null || isNaN(s)) return "--:--";
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+function camelotColor(key: string | null) {
+  if (!key) return "#555";
+  const colors: Record<string, string> = {
+    "1": "#e74c3c", "2": "#e67e22", "3": "#f1c40f", "4": "#2ecc71",
+    "5": "#1abc9c", "6": "#3498db", "7": "#9b59b6", "8": "#e91e63",
+    "9": "#ff5722", "10": "#4caf50", "11": "#00bcd4", "12": "#673ab7",
+  };
+  return colors[String(parseInt(key))] || "#555";
+}
+
 function tintFor(seed: string) {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
@@ -97,10 +114,11 @@ function TrackRow({
 
   return (
     <div
-      className={`grid grid-cols-[24px_40px_1fr_28px_60px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-3 px-3 sm:px-4 py-2.5 group rounded-md ${
+      className={`grid grid-cols-[24px_40px_1fr_28px_60px_60px_70px_80px] sm:grid-cols-[32px_44px_1fr_28px_80px_70px_90px_100px] items-center gap-3 px-3 sm:px-4 py-2.5 group rounded-md ${
         isPlaying ? "bg-primary/10" : "hover:bg-accent/40"
       } transition-colors`}
     >
+      {/* Play / index */}
       <button onClick={onPlay} className="text-xs tabular-nums text-muted-foreground relative w-6 flex items-center justify-center">
         <span className={`transition-opacity ${isPlaying ? "opacity-0" : "group-hover:opacity-0"}`}>{index + 1}</span>
         <span className={`absolute inset-0 flex items-center justify-center transition-opacity ${isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
@@ -115,7 +133,11 @@ function TrackRow({
           )}
         </span>
       </button>
+
+      {/* Cover */}
       <TrackCover url={track.coverImageUrl} />
+
+      {/* Title */}
       <div className="min-w-0">
         {editing ? (
           <input
@@ -139,15 +161,39 @@ function TrackRow({
             {track.title}
           </p>
         )}
-        <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-          {isAnalyzing && <span className="text-[10px] text-primary animate-pulse">Analyzing…</span>}
-          {track.bpm && <span className="text-[10px] text-muted-foreground">{Math.round(track.bpm)} BPM</span>}
-          {track.camelotKey && <span className="text-[10px] text-muted-foreground">· {track.camelotKey}</span>}
-        </div>
+        {isAnalyzing && <span className="text-[10px] text-primary animate-pulse">Analyzing…</span>}
       </div>
+
+      {/* Uploader avatar */}
       <div className="flex items-center justify-center" title={`Uploaded by ${track.uploaderName || "you"}`}>
         <UploaderAvatar name={track.uploaderName} avatarUrl={track.uploaderAvatarUrl} />
       </div>
+
+      {/* Duration */}
+      <div className="text-xs tabular-nums text-muted-foreground text-right hidden sm:block">
+        {fmtDuration(track.durationSeconds)}
+      </div>
+
+      {/* BPM */}
+      <div className="text-xs tabular-nums text-muted-foreground text-right hidden sm:block">
+        {track.bpm ? `${Math.round(track.bpm)} BPM` : "—"}
+      </div>
+
+      {/* Camelot key */}
+      <div className="flex items-center justify-end hidden sm:flex">
+        {track.camelotKey ? (
+          <span
+            className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+            style={{ background: camelotColor(track.camelotKey) + "33", color: camelotColor(track.camelotKey) }}
+          >
+            {track.camelotKey}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground/40">—</span>
+        )}
+      </div>
+
+      {/* Actions */}
       <div className="flex items-center justify-end gap-1">
         <button
           onClick={startEdit}
@@ -276,6 +322,7 @@ export function PersonalLibrary() {
 
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
@@ -291,7 +338,7 @@ export function PersonalLibrary() {
             <Logo size={22} />
           </div>
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-foreground truncate">My Library</h1>
+            <h1 className="text-base sm:text-lg font-bold text-foreground truncate">Personal Library</h1>
             <p className="text-xs text-muted-foreground">
               {tracks ? `${tracks.length} track${tracks.length !== 1 ? "s" : ""}` : "Loading…"}
             </p>
@@ -317,6 +364,7 @@ export function PersonalLibrary() {
         />
       </div>
 
+      {/* Upload progress */}
       {(uploadBatch || Object.entries(uploadProgress).length > 0) && (
         <div className="px-4 sm:px-6 py-2 border-b border-border space-y-1.5 flex-shrink-0">
           {uploadBatch && (
@@ -335,15 +383,20 @@ export function PersonalLibrary() {
         </div>
       )}
 
+      {/* Track list */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-2 sm:px-4 py-4">
           {tracks && tracks.length > 0 ? (
             <>
-              <div className="grid grid-cols-[24px_40px_1fr_28px_60px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-3 px-3 sm:px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 mb-2">
+              {/* Column headers */}
+              <div className="grid grid-cols-[24px_40px_1fr_28px_60px_60px_70px_80px] sm:grid-cols-[32px_44px_1fr_28px_80px_70px_90px_100px] items-center gap-3 px-3 sm:px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 mb-2">
                 <span>#</span>
                 <span></span>
+                <span>Title</span>
                 <span></span>
-                <span></span>
+                <span className="text-right hidden sm:block">Time</span>
+                <span className="text-right hidden sm:block">BPM</span>
+                <span className="text-right hidden sm:block">Key</span>
                 <span></span>
               </div>
               {tracks.map((track, i) => (
@@ -373,7 +426,7 @@ export function PersonalLibrary() {
                   <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                 </svg>
               </div>
-              <p className="text-sm font-medium text-foreground mb-1">Your library is empty</p>
+              <p className="text-sm font-medium text-foreground mb-1">Your personal library is empty</p>
               <p className="text-xs text-muted-foreground mb-4">Upload audio files to keep your personal collection in one place.</p>
               <button
                 onClick={() => fileInputRef.current?.click()}

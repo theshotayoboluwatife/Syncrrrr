@@ -169,6 +169,31 @@ function TrackRow({
       <div className="flex items-center justify-center" title={`Uploaded by ${track.uploaderName || "Unknown"}`}>
         <UploaderAvatar name={track.uploaderName} avatarUrl={track.uploaderAvatarUrl} />
       </div>
+      {/* Duration */}
+      <div className="text-xs tabular-nums text-muted-foreground text-right hidden sm:block">
+        {fmtDuration(track.durationSeconds)}
+      </div>
+
+      {/* BPM */}
+      <div className="text-xs tabular-nums text-muted-foreground text-right hidden sm:block">
+        {track.bpm ? `${Math.round(track.bpm)} BPM` : "—"}
+      </div>
+
+      {/* Camelot key */}
+      <div className="flex items-center justify-end hidden sm:flex">
+        {track.camelotKey ? (
+          <span
+            className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+            style={{ background: camelotColor(track.camelotKey) + "33", color: camelotColor(track.camelotKey) }}
+          >
+            {track.camelotKey}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground/40">—</span>
+        )}
+      </div>
+
+      {/* Actions */}
       <div className="flex items-center justify-end gap-1">
         {canManage ? (
           <>
@@ -381,11 +406,14 @@ export function TeamLibrary() {
           {tracks && tracks.length > 0 ? (
             <>
               {/* Column headers */}
-              <div className="grid grid-cols-[24px_40px_1fr_28px_80px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-3 px-3 sm:px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 mb-2">
+              <div className="grid grid-cols-[24px_40px_1fr_28px_60px_60px_70px_80px] sm:grid-cols-[32px_44px_1fr_28px_80px_70px_90px_100px] items-center gap-3 px-3 sm:px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 mb-2">
                 <span>#</span>
                 <span></span>
+                <span>Title</span>
                 <span></span>
-                <span></span>
+                <span className="text-right hidden sm:block">Time</span>
+                <span className="text-right hidden sm:block">BPM</span>
+                <span className="text-right hidden sm:block">Key</span>
                 <span></span>
               </div>
               {tracks.map((track, i) => (
