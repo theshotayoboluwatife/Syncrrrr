@@ -12,6 +12,7 @@ export interface UpdateProjectBody {
   description?: string | null;
   /** @nullable */
   coverImageUrl?: string | null;
+  shareExpiresAt?: string;
   /** @nullable */
   sharedSequenceIds?: string[] | null;
   memberOnly?: boolean;

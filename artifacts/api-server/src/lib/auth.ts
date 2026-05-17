@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -27,4 +28,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
 export const getSupabaseId = (req: Request): string => {
   return (req as any).supabaseId as string;
+};
+
+export const getSupabaseUser = (req: Request): User => {
+  return (req as any).supabaseUser as User;
 };

@@ -12,8 +12,8 @@ Syncr is a full-stack web application for musicians and music teams to organize,
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
 - **Database**: PostgreSQL + Drizzle ORM
-- **Auth**: Clerk (whitelabel, email + Google)
-- **Storage**: Replit Object Storage (audio files, cover art)
+- **Auth**: Supabase Auth (email + Google)
+- **Storage**: Supabase Storage (audio files, cover art)
 - **Frontend**: React + Vite + Tailwind CSS
 - **Drag and Drop**: @dnd-kit/core, @dnd-kit/sortable
 - **Audio Analysis**: Meyda.js (in-browser BPM + key detection)
@@ -26,8 +26,8 @@ Syncr is a full-stack web application for musicians and music teams to organize,
 Frontend (React + Vite)     → /
 API Server (Express)        → /api
 PostgreSQL (Drizzle ORM)    → DATABASE_URL
-Object Storage (GCS)        → PRIVATE_OBJECT_DIR
-Clerk Auth (whitelabel)     → CLERK_PUBLISHABLE_KEY
+Supabase Storage            → SUPABASE_STORAGE_BUCKET
+Supabase Auth               → VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 ```
 
 ## Key Commands
@@ -40,7 +40,7 @@ Clerk Auth (whitelabel)     → CLERK_PUBLISHABLE_KEY
 
 ## Database Schema
 
-- **users** — synced from Clerk on first login (id, clerkId, email, displayName, avatarUrl)
+- **users** — synced from Supabase Auth on first login (id, supabaseId, email, displayName, avatarUrl)
 - **teams** — collaborative team workspaces (id, name, createdBy)
 - **team_members** — users in a team with role (owner|admin|member)
 - **projects** — album/EP projects with shareToken for public sharing; optional teamId for team-owned projects
@@ -60,7 +60,7 @@ Syncr uses Figma-style team workspaces:
 - Team settings page (`/teams/:teamId/settings`) manages members and team name
 - Access: team members can see all projects in their team; project_members check still applies for direct personal project membership
 - Team avatar shows uploaded `imageUrl` if available (uploaded via Team Settings page)
-- Teams have optional `imageUrl` column; uploaded via presigned URL same as cover art
+- Teams have optional `imageUrl` column; uploaded with the same backend upload flow as cover art
 
 ## Audio Analysis
 
@@ -71,13 +71,13 @@ Syncr uses Figma-style team workspaces:
 
 ## File Upload Flow
 
-1. Request presigned URL from `/api/storage/uploads/request-url`
-2. PUT file directly to GCS via the presigned URL
+1. Request upload URL from `/api/storage/uploads/request-url`
+2. PUT file directly to Supabase Storage via the returned signed upload URL
 3. Run Meyda analysis on the audio buffer in the browser (returns bpm, camelotKey, durationSeconds)
 4. POST track record to `/api/projects/:projectId/tracks` with analysis results
 
 ### Cover Art & Team Image Upload
-- Same presigned URL flow: request URL, PUT image, then PATCH project/team with `coverImageUrl`/`imageUrl`
+- Same upload flow: request URL, PUT image, then PATCH project/team with `coverImageUrl`/`imageUrl`
 - Workspace header has clickable cover thumbnail for project cover art
 - Project title is inline-editable in the workspace header
 - `ProjectCover` component shows cover image or a dark music-icon placeholder; accepts `fill` prop for CSS-sized containers
@@ -106,8 +106,9 @@ Tracks have nullable `teamId` (team library) and nullable `projectId` (project l
 - **sequence** — React + Vite frontend (preview at `/`)
 - **api-server** — Express API server (preview at `/api`)
 
-## Environment Variables (Auto-Provisioned)
+## Environment Variables
 
-- `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `VITE_CLERK_PUBLISHABLE_KEY` — Clerk auth
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — Supabase auth
 - `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` — PostgreSQL
-- `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR` — Object Storage
+- `SUPABASE_STORAGE_BUCKET` — private Supabase Storage bucket for uploads
+- `PORT`, `BASE_PATH`, `API_PROXY_TARGET` — local dev server configuration

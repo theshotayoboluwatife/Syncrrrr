@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, asc } from "drizzle-orm";
-import { db, sequencesTable, sequenceTracksTable, tracksTable, projectMembersTable, usersTable } from "@workspace/db";
+import { db, sequencesTable, sequenceTracksTable, tracksTable, projectMembersTable, usersTable, projectsTable, teamMembersTable } from "@workspace/db";
 import {
   ListSequencesParams,
   CreateSequenceParams,
@@ -30,11 +30,22 @@ async function assertProjectAccess(projectId: string, userId: string, res: any):
     .select()
     .from(projectMembersTable)
     .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.userId, userId)));
-  if (!member) {
-    res.status(403).json({ error: "Forbidden" });
-    return false;
+  if (member) return true;
+
+  const [project] = await db
+    .select({ teamId: projectsTable.teamId })
+    .from(projectsTable)
+    .where(eq(projectsTable.id, projectId));
+  if (project?.teamId) {
+    const [teamMember] = await db
+      .select()
+      .from(teamMembersTable)
+      .where(and(eq(teamMembersTable.teamId, project.teamId), eq(teamMembersTable.userId, userId)));
+    if (teamMember) return true;
   }
-  return true;
+
+  res.status(403).json({ error: "Forbidden" });
+  return false;
 }
 
 async function getSequenceWithTracks(sequenceId: string) {

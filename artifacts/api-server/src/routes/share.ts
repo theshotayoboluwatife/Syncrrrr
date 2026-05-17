@@ -17,6 +17,10 @@ router.get("/share/:shareToken", async (req, res): Promise<void> => {
     .where(eq(projectsTable.shareToken, params.data.shareToken));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  if (project.shareExpiresAt.getTime() <= Date.now()) {
+    res.status(410).json({ error: "Share link expired" });
+    return;
+  }
 
   const [team] = project.teamId
     ? await db.select().from(teamsTable).where(eq(teamsTable.id, project.teamId))
@@ -89,14 +93,12 @@ router.get("/share/:shareToken", async (req, res): Promise<void> => {
     title: project.title,
     description: project.description ?? null,
     coverImageUrl: project.coverImageUrl ?? null,
+    shareExpiresAt: project.shareExpiresAt.toISOString(),
     teamId: team?.id ?? null,
     teamName: team?.name ?? null,
     teamImageUrl: team?.imageUrl ?? null,
     teamInviteToken: team?.inviteToken ?? null,
-    // Public share endpoint: viewer access is determined client-side by checking
-    // signed-in team membership against teamId. We surface the invite token so
-    // the client can render a "Join {team} to listen" CTA when needed.
-    viewerHasAccess: false,
+    viewerHasAccess: true,
     sequences: sequencesWithTracks,
     tracks: tracks.map((t) => ({
       id: t.id,
@@ -128,6 +130,10 @@ router.get("/share/:shareToken/stream/:trackId", async (req, res): Promise<void>
     .where(eq(projectsTable.shareToken, params.data.shareToken));
 
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  if (project.shareExpiresAt.getTime() <= Date.now()) {
+    res.status(410).json({ error: "Share link expired" });
+    return;
+  }
 
   const [track] = await db
     .select()

@@ -2,35 +2,49 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
 import { Logo } from "@/components/Logo";
+import { reportError } from "@/lib/error-reporting";
 
 export function AuthCallback() {
   const [, navigate] = useLocation();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Supabase puts the tokens in the URL hash after email confirmation / OAuth redirect.
-    // getSession() picks them up automatically from window.location.hash.
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    const params = new URLSearchParams(window.location.search);
+    const redirectParam = params.get("redirect");
+    const redirectTo = redirectParam?.startsWith("/") ? redirectParam : "/dashboard";
+
+    async function finishAuth() {
+      const code = params.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          reportError(error, { area: "auth", action: "exchange oauth code" });
+          setError(error.message);
+          return;
+        }
+      }
+
+      // Supabase may put tokens in either the URL hash or a PKCE code param.
+      const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
+        reportError(error, { area: "auth", action: "read callback session" });
         setError(error.message);
         return;
       }
       if (session) {
-        // Strip the hash so it doesn't linger in history
-        window.history.replaceState(null, "", window.location.pathname + window.location.search);
-        navigate("/dashboard");
+        window.history.replaceState(null, "", window.location.pathname);
+        navigate(redirectTo);
       } else {
-        // No session yet — try exchanging the code/token from the hash
         const hash = window.location.hash;
         if (hash && hash.includes("access_token")) {
-          // onAuthStateChange in AuthContext will pick this up and update the session
-          // Just wait a moment then redirect
-          setTimeout(() => navigate("/dashboard"), 500);
+          setTimeout(() => navigate(redirectTo), 500);
         } else {
           navigate("/sign-in");
         }
       }
-    });
+    }
+
+    finishAuth();
   }, [navigate]);
 
   if (error) {

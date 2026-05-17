@@ -196,7 +196,7 @@ export function useGetMe<
 }
 
 /**
- * @summary Sync Clerk user to database
+ * @summary Sync Supabase user to database
  */
 export const getUpsertMeUrl = () => {
   return `/api/users/me`;
@@ -259,7 +259,7 @@ export type UpsertMeMutationBody = BodyType<UpsertUserBody>;
 export type UpsertMeMutationError = ErrorType<unknown>;
 
 /**
- * @summary Sync Clerk user to database
+ * @summary Sync Supabase user to database
  */
 export const useUpsertMe = <
   TError = ErrorType<unknown>,

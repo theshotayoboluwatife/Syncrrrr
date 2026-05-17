@@ -1,11 +1,13 @@
+import { useEffect, useRef, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGetJoinInfo, useJoinTeamViaInvite } from "@workspace/api-client-react";
+import { useGetJoinInfo, useJoinTeamViaInvite, useUpsertMe } from "@workspace/api-client-react";
 import { Logo } from "@/components/Logo";
+import { getAuthAvatarUrl, getAuthDisplayName } from "@/lib/auth-user";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function TeamAvatar({ name, size = 64 }: { name: string; size?: number }) {
+function TeamAvatar({ name, imageUrl, size = 64 }: { name: string; imageUrl?: string | null; size?: number }) {
   const colors = [
     "#1DB954", "#1565C0", "#6A1B9A", "#AD1457", "#E65100",
     "#00695C", "#558B2F", "#37474F", "#4527A0", "#283593",
@@ -17,6 +19,17 @@ function TeamAvatar({ name, size = 64 }: { name: string; size?: number }) {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
+
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt={name}
+        className="rounded-2xl object-cover flex-shrink-0"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
 
   return (
     <div
@@ -31,16 +44,52 @@ function TeamAvatar({ name, size = 64 }: { name: string; size?: number }) {
 export function JoinTeam() {
   const { token } = useParams<{ token: string }>();
   const [, navigate] = useLocation();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, user } = useAuth();
   const { data: info, isLoading, error } = useGetJoinInfo(token, { query: { retry: false } });
   const joinMutation = useJoinTeamViaInvite();
+  const upsertMe = useUpsertMe();
+  const [syncedUserId, setSyncedUserId] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState(false);
+  const syncingUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !user) {
+      setSyncedUserId(null);
+      setSyncError(false);
+      syncingUserIdRef.current = null;
+      return;
+    }
+
+    if (syncedUserId === user.id || syncingUserIdRef.current === user.id) return;
+
+    syncingUserIdRef.current = user.id;
+    setSyncError(false);
+    upsertMe.mutate(
+      {
+        data: {
+          email: user.email ?? "",
+          displayName: getAuthDisplayName(user),
+          avatarUrl: getAuthAvatarUrl(user),
+        },
+      },
+      {
+        onSuccess: () => setSyncedUserId(user.id),
+        onError: () => setSyncError(true),
+        onSettled: () => {
+          syncingUserIdRef.current = null;
+        },
+      },
+    );
+  }, [isLoaded, isSignedIn, user, syncedUserId]);
+
+  const accountReady = isSignedIn && !!user && syncedUserId === user.id;
 
   const handleJoin = async () => {
+    if (!accountReady) return;
     try {
       const team = await joinMutation.mutateAsync({ token });
       navigate(`/dashboard?team=${team.id}`);
-    } catch {
-    }
+    } catch {}
   };
 
   return (
@@ -73,7 +122,7 @@ export function JoinTeam() {
           ) : (
             <div className="text-center space-y-6">
               <div className="flex flex-col items-center gap-4">
-                <TeamAvatar name={info.teamName} size={80} />
+                <TeamAvatar name={info.teamName} imageUrl={info.teamImageUrl} size={80} />
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">You're invited to join</p>
                   <h1 className="text-2xl font-bold text-foreground">{info.teamName}</h1>
@@ -86,7 +135,7 @@ export function JoinTeam() {
 
               {!isLoaded ? null : !isSignedIn ? (
                 <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">Sign in or create an account to join.</p>
+                  <p className="text-sm text-muted-foreground">Use your Syncr account to accept this invite.</p>
                   <div className="flex flex-col gap-2">
                     <a
                       href={`${basePath}/sign-in?invite=${token}`}
@@ -101,19 +150,19 @@ export function JoinTeam() {
                       Create account
                     </a>
                   </div>
-                  <p className="text-xs text-muted-foreground/60">
-                    After signing in you'll be joined to <strong className="text-muted-foreground">{info.teamName}</strong> automatically.
-                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <button
                     onClick={handleJoin}
-                    disabled={joinMutation.isPending}
+                    disabled={!accountReady || upsertMe.isPending || joinMutation.isPending}
                     className="w-full py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
                   >
-                    {joinMutation.isPending ? "Joining…" : `Join ${info.teamName}`}
+                    {!accountReady || upsertMe.isPending ? "Preparing account…" : joinMutation.isPending ? "Joining…" : `Join ${info.teamName}`}
                   </button>
+                  {syncError && (
+                    <p className="text-xs text-destructive">We could not prepare your account. Please try again.</p>
+                  )}
                   {joinMutation.isError && (
                     <p className="text-xs text-destructive">Something went wrong. Please try again.</p>
                   )}

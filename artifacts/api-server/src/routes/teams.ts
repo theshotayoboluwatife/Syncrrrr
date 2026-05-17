@@ -1,13 +1,82 @@
 import { Router, type IRouter } from "express";
 import { eq, and, sql } from "drizzle-orm";
 import { db, teamsTable, teamMembersTable, teamInvitesTable, usersTable } from "@workspace/db";
-import { requireAuth, getSupabaseId } from "../lib/auth";
+import { requireAuth, getSupabaseId, getSupabaseUser, supabaseAdmin } from "../lib/auth";
+import { createDefaultAvatarDataUrl } from "../lib/defaultAvatar";
 
 const router: IRouter = Router();
 
 async function getUserBySupabaseId(supabaseId: string) {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.supabaseId, supabaseId));
   return user;
+}
+
+function metadataString(user: { user_metadata?: Record<string, unknown> } | null | undefined, keys: string[]) {
+  for (const key of keys) {
+    const value = user?.user_metadata?.[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+async function refreshStoredAvatarFromSupabaseAuth(member: {
+  supabaseId: string;
+  avatarUrl: string | null;
+}) {
+  if (member.avatarUrl && !member.avatarUrl.startsWith("data:image/svg+xml")) return member.avatarUrl;
+
+  const { data, error } = await supabaseAdmin.auth.admin.getUserById(member.supabaseId);
+  if (error || !data.user) return member.avatarUrl;
+
+  const avatarUrl = metadataString(data.user, ["avatar_url", "picture", "photo_url"]);
+  if (!avatarUrl || avatarUrl === member.avatarUrl) return member.avatarUrl;
+
+  await db
+    .update(usersTable)
+    .set({ avatarUrl })
+    .where(eq(usersTable.supabaseId, member.supabaseId));
+
+  return avatarUrl;
+}
+
+async function ensureUserFromSupabase(req: Parameters<typeof getSupabaseUser>[0]) {
+  const supabaseUser = getSupabaseUser(req);
+  const supabaseId = supabaseUser.id;
+  const email = supabaseUser.email?.trim().toLowerCase();
+  if (!email) return null;
+
+  const displayName =
+    metadataString(supabaseUser, ["user_name", "preferred_username", "full_name", "name"]) ||
+    email.split("@")[0] ||
+    "Syncr user";
+  const avatarUrl = metadataString(supabaseUser, ["avatar_url", "picture", "photo_url"]);
+  const fallbackAvatarUrl = createDefaultAvatarDataUrl(supabaseId, displayName);
+
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.supabaseId, supabaseId));
+  if (existing) {
+    const [updated] = await db
+      .update(usersTable)
+      .set({
+        email,
+        displayName,
+        avatarUrl: avatarUrl ?? existing.avatarUrl ?? fallbackAvatarUrl,
+      })
+      .where(eq(usersTable.supabaseId, supabaseId))
+      .returning();
+    return updated;
+  }
+
+  const [created] = await db
+    .insert(usersTable)
+    .values({
+      supabaseId,
+      email,
+      displayName,
+      avatarUrl: avatarUrl ?? fallbackAvatarUrl,
+    })
+    .returning();
+
+  return created;
 }
 
 async function assertTeamAccess(teamId: string, userId: string, res: any, minRole?: "owner" | "admin"): Promise<{ member: typeof teamMembersTable.$inferSelect } | false> {
@@ -199,17 +268,26 @@ router.get("/teams/:teamId/members", requireAuth, async (req, res): Promise<void
       email: usersTable.email,
       displayName: usersTable.displayName,
       avatarUrl: usersTable.avatarUrl,
+      supabaseId: usersTable.supabaseId,
     })
     .from(teamMembersTable)
     .innerJoin(usersTable, eq(teamMembersTable.userId, usersTable.id))
     .where(eq(teamMembersTable.teamId, teamId));
 
-  const activeMembers = members.map((m) => ({
-    ...m,
-    pending: false as const,
-    avatarUrl: m.avatarUrl ?? null,
-    invitedAt: m.invitedAt.toISOString(),
-  }));
+  const activeMembers = await Promise.all(
+    members.map(async (m) => ({
+      userId: m.userId,
+      role: m.role,
+      email: m.email,
+      displayName: m.displayName,
+      pending: false as const,
+      avatarUrl: await refreshStoredAvatarFromSupabaseAuth({
+        supabaseId: m.supabaseId,
+        avatarUrl: m.avatarUrl ?? null,
+      }),
+      invitedAt: m.invitedAt.toISOString(),
+    })),
+  );
 
   // Include pending invites (only visible to admins/owners)
   const isAdminOrOwner = access.member.role === "owner" || access.member.role === "admin";
@@ -254,7 +332,6 @@ router.post("/teams/:teamId/members", requireAuth, async (req, res): Promise<voi
   const [targetUser] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
 
   if (targetUser) {
-    // User already has an account — add them directly
     const [existing] = await db
       .select()
       .from(teamMembersTable)
@@ -264,28 +341,9 @@ router.post("/teams/:teamId/members", requireAuth, async (req, res): Promise<voi
       res.status(409).json({ error: "User is already a team member" });
       return;
     }
-
-    const [member] = await db
-      .insert(teamMembersTable)
-      .values({ teamId, userId: targetUser.id, role: role ?? "member" })
-      .returning();
-
-    res.status(201).json({
-      inviteId: null,
-      pending: false,
-      userId: member.userId,
-      email: targetUser.email,
-      displayName: targetUser.displayName,
-      avatarUrl: targetUser.avatarUrl ?? null,
-      role: member.role,
-      invitedAt: member.invitedAt.toISOString(),
-    });
-    return;
   }
 
-  // User has no account yet — store a pending invite
-  // Check if an existing active member already has this email (edge case: email change)
-  // Also check for a duplicate pending invite
+  // Store a pending invite for direct email invites. The recipient accepts or declines it.
   const [existingInvite] = await db
     .select()
     .from(teamInvitesTable)
@@ -421,14 +479,14 @@ router.get("/join/:token", async (req, res): Promise<void> => {
   res.json({
     teamId: team.id,
     teamName: team.name,
+    teamImageUrl: team.imageUrl ?? null,
     memberCount: count,
     createdBy: creator?.displayName ?? "Unknown",
   });
 });
 
 router.post("/join/:token", requireAuth, async (req, res): Promise<void> => {
-  const supabaseId = getSupabaseId(req);
-  const user = await getUserBySupabaseId(supabaseId);
+  const user = await ensureUserFromSupabase(req);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const { token } = req.params;

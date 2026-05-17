@@ -61,7 +61,7 @@ paths:
     put:
       operationId: upsertMe
       tags: [users]
-      summary: Sync Clerk user to database
+      summary: Sync Supabase user to database
       security:
         - bearerAuth: []
       requestBody:
@@ -1280,6 +1280,8 @@ components:
           type: ["string", "null"]
         shareToken:
           type: string
+        shareExpiresAt:
+          type: string
         teamId:
           type: ["string", "null"]
         sharedSequenceIds:
@@ -1294,6 +1296,12 @@ components:
           type: integer
         role:
           type: string
+        createdBy:
+          type: string
+        creatorDisplayName:
+          type: string
+        creatorAvatarUrl:
+          type: ["string", "null"]
         createdAt:
           type: string
         updatedAt:
@@ -1304,12 +1312,16 @@ components:
         - description
         - coverImageUrl
         - shareToken
+        - shareExpiresAt
         - teamId
         - sharedSequenceIds
         - memberOnly
         - trackCount
         - sequenceCount
         - role
+        - createdBy
+        - creatorDisplayName
+        - creatorAvatarUrl
         - createdAt
         - updatedAt
 
@@ -1325,6 +1337,8 @@ components:
         coverImageUrl:
           type: ["string", "null"]
         shareToken:
+          type: string
+        shareExpiresAt:
           type: string
         teamId:
           type: ["string", "null"]
@@ -1346,6 +1360,7 @@ components:
         - description
         - coverImageUrl
         - shareToken
+        - shareExpiresAt
         - teamId
         - sharedSequenceIds
         - memberOnly
@@ -1403,6 +1418,9 @@ components:
           type: string
         teamName:
           type: string
+        teamImageUrl:
+          type: string
+          nullable: true
         memberCount:
           type: integer
         createdBy:
@@ -1410,6 +1428,7 @@ components:
       required:
         - teamId
         - teamName
+        - teamImageUrl
         - memberCount
         - createdBy
 
@@ -1485,6 +1504,8 @@ components:
           type: ["string", "null"]
         coverImageUrl:
           type: ["string", "null"]
+        shareExpiresAt:
+          type: string
         sharedSequenceIds:
           type: ["array", "null"]
           items:
@@ -1774,6 +1795,8 @@ components:
           type: ["string", "null"]
         coverImageUrl:
           type: ["string", "null"]
+        shareExpiresAt:
+          type: string
         teamId:
           type: ["string", "null"]
         teamName:
@@ -1797,6 +1820,7 @@ components:
         - title
         - description
         - coverImageUrl
+        - shareExpiresAt
         - teamId
         - teamName
         - teamImageUrl

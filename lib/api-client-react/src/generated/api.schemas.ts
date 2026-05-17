@@ -11,7 +11,7 @@ export interface HealthStatus {
 
 export interface User {
   id: string;
-  clerkId: string;
+  supabaseId: string;
   email: string;
   displayName: string;
   /** @nullable */
@@ -34,6 +34,7 @@ export interface ProjectSummary {
   /** @nullable */
   coverImageUrl: string | null;
   shareToken: string;
+  shareExpiresAt: string;
   /** @nullable */
   teamId: string | null;
   /** @nullable */
@@ -42,6 +43,10 @@ export interface ProjectSummary {
   trackCount: number;
   sequenceCount: number;
   role: string;
+  createdBy: string;
+  creatorDisplayName: string;
+  /** @nullable */
+  creatorAvatarUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +59,7 @@ export interface Project {
   /** @nullable */
   coverImageUrl: string | null;
   shareToken: string;
+  shareExpiresAt: string;
   /** @nullable */
   teamId: string | null;
   /** @nullable */
@@ -90,6 +96,8 @@ export interface TeamSummary {
 export interface JoinTeamInfo {
   teamId: string;
   teamName: string;
+  /** @nullable */
+  teamImageUrl: string | null;
   memberCount: number;
   createdBy: string;
 }
@@ -134,6 +142,7 @@ export interface UpdateProjectBody {
   description?: string | null;
   /** @nullable */
   coverImageUrl?: string | null;
+  shareExpiresAt?: string;
   /** @nullable */
   sharedSequenceIds?: string[] | null;
   memberOnly?: boolean;
@@ -283,6 +292,7 @@ export interface SharedProject {
   description: string | null;
   /** @nullable */
   coverImageUrl: string | null;
+  shareExpiresAt: string;
   /** @nullable */
   teamId: string | null;
   /** @nullable */

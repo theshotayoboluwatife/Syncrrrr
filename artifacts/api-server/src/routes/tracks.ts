@@ -41,11 +41,19 @@ async function assertProjectAccess(projectId: string, userId: string, res: any):
     .select()
     .from(projectMembersTable)
     .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.userId, userId)));
-  if (!member) {
-    res.status(403).json({ error: "Forbidden" });
-    return false;
+  if (member) return true;
+
+  const [project] = await db
+    .select({ teamId: projectsTable.teamId })
+    .from(projectsTable)
+    .where(eq(projectsTable.id, projectId));
+  if (project?.teamId) {
+    const teamMember = await getTeamMembership(project.teamId, userId);
+    if (teamMember) return true;
   }
-  return true;
+
+  res.status(403).json({ error: "Forbidden" });
+  return false;
 }
 
 async function getTeamMembership(teamId: string, userId: string) {

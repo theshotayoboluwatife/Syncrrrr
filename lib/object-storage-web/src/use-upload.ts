@@ -21,11 +21,11 @@ interface UseUploadOptions {
 }
 
 /**
- * React hook for handling file uploads with presigned URLs.
+ * React hook for handling file uploads with backend-issued upload URLs.
  *
- * This hook implements the two-step presigned URL upload flow:
- * 1. Request a presigned URL from your backend (sends JSON metadata, NOT the file)
- * 2. Upload the file directly to the presigned URL
+ * This hook implements the two-step upload flow:
+ * 1. Request an upload URL from your backend (sends JSON metadata, NOT the file)
+ * 2. Upload the file to the returned URL
  *
  * @example
  * ```tsx

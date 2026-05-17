@@ -27,7 +27,7 @@ export const GetMeResponse = zod.object({
 });
 
 /**
- * @summary Sync Clerk user to database
+ * @summary Sync Supabase user to database
  */
 export const UpsertMeBody = zod.object({
   email: zod.string(),
@@ -53,12 +53,16 @@ export const ListProjectsResponseItem = zod.object({
   description: zod.string().nullable(),
   coverImageUrl: zod.string().nullable(),
   shareToken: zod.string(),
+  shareExpiresAt: zod.string(),
   teamId: zod.string().nullable(),
   sharedSequenceIds: zod.array(zod.string()).nullable(),
   memberOnly: zod.boolean(),
   trackCount: zod.number(),
   sequenceCount: zod.number(),
   role: zod.string(),
+  createdBy: zod.string(),
+  creatorDisplayName: zod.string(),
+  creatorAvatarUrl: zod.string().nullable(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -87,6 +91,7 @@ export const GetProjectResponse = zod.object({
   description: zod.string().nullable(),
   coverImageUrl: zod.string().nullable(),
   shareToken: zod.string(),
+  shareExpiresAt: zod.string(),
   teamId: zod.string().nullable(),
   sharedSequenceIds: zod.array(zod.string()).nullable(),
   memberOnly: zod.boolean(),
@@ -106,6 +111,7 @@ export const UpdateProjectBody = zod.object({
   title: zod.string().optional(),
   description: zod.string().nullish(),
   coverImageUrl: zod.string().nullish(),
+  shareExpiresAt: zod.string().optional(),
   sharedSequenceIds: zod.array(zod.string()).nullish(),
   memberOnly: zod.boolean().optional(),
 });
@@ -116,6 +122,7 @@ export const UpdateProjectResponse = zod.object({
   description: zod.string().nullable(),
   coverImageUrl: zod.string().nullable(),
   shareToken: zod.string(),
+  shareExpiresAt: zod.string(),
   teamId: zod.string().nullable(),
   sharedSequenceIds: zod.array(zod.string()).nullable(),
   memberOnly: zod.boolean(),
@@ -469,6 +476,7 @@ export const GetSharedProjectResponse = zod.object({
   title: zod.string(),
   description: zod.string().nullable(),
   coverImageUrl: zod.string().nullable(),
+  shareExpiresAt: zod.string(),
   teamId: zod.string().nullable(),
   teamName: zod.string().nullable(),
   teamImageUrl: zod.string().nullable(),
@@ -913,6 +921,7 @@ export const GetJoinInfoParams = zod.object({
 export const GetJoinInfoResponse = zod.object({
   teamId: zod.string(),
   teamName: zod.string(),
+  teamImageUrl: zod.string().nullable(),
   memberCount: zod.number(),
   createdBy: zod.string(),
 });

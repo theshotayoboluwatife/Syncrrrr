@@ -9,6 +9,8 @@
 export interface JoinTeamInfo {
   teamId: string;
   teamName: string;
+  /** @nullable */
+  teamImageUrl: string | null;
   memberCount: number;
   createdBy: string;
 }

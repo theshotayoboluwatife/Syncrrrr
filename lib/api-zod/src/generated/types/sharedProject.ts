@@ -15,6 +15,7 @@ export interface SharedProject {
   description: string | null;
   /** @nullable */
   coverImageUrl: string | null;
+  shareExpiresAt: string;
   /** @nullable */
   teamId: string | null;
   /** @nullable */

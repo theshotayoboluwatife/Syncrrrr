@@ -37,16 +37,7 @@ async function assertProjectAccess(projectId: string, userId: string, res: any):
       .select()
       .from(teamMembersTable)
       .where(and(eq(teamMembersTable.teamId, project.teamId), eq(teamMembersTable.userId, userId)));
-    if (teamMember) {
-      // When project is restricted to specific members, only owners/admins of the
-      // team or explicit project_members can access it. Plain team members do not.
-      if (project.memberOnly === "true") {
-        if (teamMember.role === "owner" || teamMember.role === "admin") return true;
-        // Not in project_members and not an admin → blocked.
-      } else {
-        return true;
-      }
-    }
+    if (teamMember) return true;
   }
 
   res.status(403).json({ error: "Forbidden" });
@@ -112,22 +103,35 @@ router.get("/projects", requireAuth, async (req, res): Promise<void> => {
   const seqCountMap = Object.fromEntries(sequenceCounts.map((s) => [s.projectId, s.count]));
   const roleMap = Object.fromEntries(members.map((m) => [m.projectId, m.role]));
   const teamRoleMap = Object.fromEntries(userTeamMemberships.map((m) => [m.teamId, m.role]));
+  const creatorIds = Array.from(new Set(projects.map((p) => p.createdBy)));
+  const creators = await db
+    .select({ id: usersTable.id, displayName: usersTable.displayName, avatarUrl: usersTable.avatarUrl })
+    .from(usersTable)
+    .where(sql`${usersTable.id} = ANY(ARRAY[${sql.join(creatorIds.map(id => sql`${id}`), sql`, `)}]::text[])`);
+  const creatorMap = new Map(creators.map((creator) => [creator.id, creator]));
 
-  const result = projects.map((p) => ({
-    id: p.id,
-    title: p.title,
-    description: p.description ?? null,
-    coverImageUrl: p.coverImageUrl ?? null,
-    shareToken: p.shareToken,
-    teamId: p.teamId ?? null,
-    sharedSequenceIds: p.sharedSequenceIds ?? null,
-    memberOnly: p.memberOnly === "true",
-    trackCount: trackCountMap[p.id] ?? 0,
-    sequenceCount: seqCountMap[p.id] ?? 0,
-    role: roleMap[p.id] ?? (p.teamId ? (teamRoleMap[p.teamId] ?? "member") : "editor"),
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-  }));
+  const result = projects.map((p) => {
+    const creator = creatorMap.get(p.createdBy);
+    return {
+      id: p.id,
+      title: p.title,
+      description: p.description ?? null,
+      coverImageUrl: p.coverImageUrl ?? null,
+      shareToken: p.shareToken,
+      shareExpiresAt: p.shareExpiresAt.toISOString(),
+      teamId: p.teamId ?? null,
+      sharedSequenceIds: p.sharedSequenceIds ?? null,
+      memberOnly: p.memberOnly === "true",
+      trackCount: trackCountMap[p.id] ?? 0,
+      sequenceCount: seqCountMap[p.id] ?? 0,
+      role: roleMap[p.id] ?? (p.teamId ? (teamRoleMap[p.teamId] ?? "member") : "editor"),
+      createdBy: p.createdBy,
+      creatorDisplayName: creator?.displayName ?? "Unknown",
+      creatorAvatarUrl: creator?.avatarUrl ?? null,
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString(),
+    };
+  });
 
   res.json(result);
 });
@@ -181,6 +185,7 @@ router.post("/projects", requireAuth, async (req, res): Promise<void> => {
     description: project.description ?? null,
     coverImageUrl: project.coverImageUrl ?? null,
     teamId: project.teamId ?? null,
+    shareExpiresAt: project.shareExpiresAt.toISOString(),
     sharedSequenceIds: project.sharedSequenceIds ?? null,
     memberOnly: project.memberOnly === "true",
     createdAt: project.createdAt.toISOString(),
@@ -207,6 +212,7 @@ router.get("/projects/:projectId", requireAuth, async (req, res): Promise<void> 
     description: project.description ?? null,
     coverImageUrl: project.coverImageUrl ?? null,
     teamId: project.teamId ?? null,
+    shareExpiresAt: project.shareExpiresAt.toISOString(),
     sharedSequenceIds: project.sharedSequenceIds ?? null,
     memberOnly: project.memberOnly === "true",
     createdAt: project.createdAt.toISOString(),
@@ -234,6 +240,7 @@ router.patch("/projects/:projectId", requireAuth, async (req, res): Promise<void
       ...(parsed.data.title !== undefined && { title: parsed.data.title }),
       ...(parsed.data.description !== undefined && { description: parsed.data.description }),
       ...(parsed.data.coverImageUrl !== undefined && { coverImageUrl: parsed.data.coverImageUrl }),
+      ...(parsed.data.shareExpiresAt !== undefined && { shareExpiresAt: new Date(parsed.data.shareExpiresAt) }),
       ...(parsed.data.sharedSequenceIds !== undefined && { sharedSequenceIds: parsed.data.sharedSequenceIds }),
       ...(parsed.data.memberOnly !== undefined && { memberOnly: parsed.data.memberOnly ? "true" as const : "false" as const }),
     })
@@ -245,6 +252,7 @@ router.patch("/projects/:projectId", requireAuth, async (req, res): Promise<void
     description: updated.description ?? null,
     coverImageUrl: updated.coverImageUrl ?? null,
     teamId: updated.teamId ?? null,
+    shareExpiresAt: updated.shareExpiresAt.toISOString(),
     sharedSequenceIds: updated.sharedSequenceIds ?? null,
     memberOnly: updated.memberOnly === "true",
     createdAt: updated.createdAt.toISOString(),
@@ -259,6 +267,32 @@ router.delete("/projects/:projectId", requireAuth, async (req, res): Promise<voi
 
   const params = DeleteProjectParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const [project] = await db
+    .select()
+    .from(projectsTable)
+    .where(eq(projectsTable.id, params.data.projectId));
+
+  if (!project) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+
+  if (project.teamId) {
+    const [teamMember] = await db
+      .select()
+      .from(teamMembersTable)
+      .where(and(eq(teamMembersTable.teamId, project.teamId), eq(teamMembersTable.userId, user.id)));
+
+    if (!teamMember || teamMember.role !== "owner") {
+      res.status(403).json({ error: "Only the team owner can delete this project" });
+      return;
+    }
+
+    await db.delete(projectsTable).where(eq(projectsTable.id, params.data.projectId));
+    res.sendStatus(204);
+    return;
+  }
 
   const [member] = await db
     .select()

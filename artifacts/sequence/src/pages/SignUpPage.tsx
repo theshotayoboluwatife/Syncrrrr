@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
 import { Logo } from "@/components/Logo";
+import { reportError } from "@/lib/error-reporting";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -46,26 +47,31 @@ export function SignUpPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}${basePath}/auth/callback`,
+        data: { user_name: username, preferred_username: username, name: username },
+        emailRedirectTo: `${window.location.origin}${basePath}/auth/callback?redirect=${encodeURIComponent(afterUrl)}`,
       },
     });
     setLoading(false);
     if (error) {
+      reportError(error, { area: "auth", action: "email sign up" });
       setError(error.message);
+    } else if (data.session) {
+      navigate(afterUrl);
     } else {
       setEmailSent(true);
     }
@@ -73,12 +79,34 @@ export function SignUpPage() {
 
   const handleGoogleSignUp = async () => {
     setError("");
-    const redirectTo = `${window.location.origin}${basePath}${afterUrl}`;
+    const redirectTo = `${window.location.origin}${basePath}/auth/callback?redirect=${encodeURIComponent(afterUrl)}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo },
+      options: {
+        redirectTo,
+        queryParams: { prompt: "select_account" },
+      },
     });
-    if (error) setError(error.message);
+    if (error) {
+      reportError(error, { area: "auth", action: "google sign up" });
+      setError(error.message);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) return;
+    setResendMessage("");
+    setResendLoading(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}${basePath}/auth/callback?redirect=${encodeURIComponent(afterUrl)}`,
+      },
+    });
+    setResendLoading(false);
+    if (error) reportError(error, { area: "auth", action: "resend confirmation email" });
+    setResendMessage(error ? error.message : "Confirmation email sent again.");
   };
 
   const signInUrl = invite
@@ -105,6 +133,18 @@ export function SignUpPage() {
             <p className="text-sm text-white/60">
               We sent a confirmation link to <strong className="text-white">{email}</strong>. Click it to activate your account.
             </p>
+            {resendMessage && (
+              <p className={`text-xs ${resendMessage.includes("sent") ? "text-[#1DB954]" : "text-red-400"}`}>
+                {resendMessage}
+              </p>
+            )}
+            <button
+              onClick={handleResendConfirmation}
+              disabled={resendLoading}
+              className="block w-full text-sm text-[#1DB954] hover:underline disabled:opacity-50"
+            >
+              {resendLoading ? "Sending..." : "Resend confirmation email"}
+            </button>
             <a href={signInUrl} className="block text-sm text-[#1DB954] hover:underline mt-2">
               Back to sign in
             </a>
@@ -145,13 +185,14 @@ export function SignUpPage() {
 
           <form onSubmit={handleEmailSignUp} className="space-y-3">
             <div>
-              <label className="text-xs text-white/70 mb-1 block">Full name</label>
+              <label className="text-xs text-white/70 mb-1 block">Username</label>
               <input
                 type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                autoComplete="name"
-                placeholder="Your name"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoComplete="username"
+                placeholder="Choose a username"
                 className="w-full bg-[#242424] border border-white/15 focus:border-[#1DB954]/60 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none transition-colors"
               />
             </div>

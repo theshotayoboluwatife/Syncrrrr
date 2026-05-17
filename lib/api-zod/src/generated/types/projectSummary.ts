@@ -14,6 +14,7 @@ export interface ProjectSummary {
   /** @nullable */
   coverImageUrl: string | null;
   shareToken: string;
+  shareExpiresAt: string;
   /** @nullable */
   teamId: string | null;
   /** @nullable */
@@ -22,6 +23,10 @@ export interface ProjectSummary {
   trackCount: number;
   sequenceCount: number;
   role: string;
+  createdBy: string;
+  creatorDisplayName: string;
+  /** @nullable */
+  creatorAvatarUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }

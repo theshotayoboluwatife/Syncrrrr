@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams } from "wouter";
 import { motion } from "framer-motion";
-import { useAuth } from "@/contexts/AuthContext";
-import { useGetSharedProject, useListTeams } from "@workspace/api-client-react";
-import type { SequenceTrack } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
+import type { SequenceTrack, SharedProject as SharedProjectData } from "@workspace/api-client-react";
 import { Logo } from "@/components/Logo";
 import { ProjectCover } from "@/lib/svg-generator";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { audioCacheService } from "@/lib/audio-cache";
 import { SharedProjectWelcomeModal } from "@/components/SharedProjectWelcomeModal";
-
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+import { reportError } from "@/lib/error-reporting";
 
 function formatDuration(s: number | null | undefined) {
   if (s == null || isNaN(s)) return null;
@@ -48,51 +46,57 @@ function EqualizerBars({ isPlaying }: { isPlaying: boolean }) {
   );
 }
 
+async function fetchPublicSharedProject(shareToken: string, signal?: AbortSignal) {
+  const timeoutController = new AbortController();
+  const timeout = window.setTimeout(() => timeoutController.abort(), 15000);
+  const abortController = new AbortController();
+
+  const abort = () => abortController.abort();
+  signal?.addEventListener("abort", abort, { once: true });
+  timeoutController.signal.addEventListener("abort", abort, { once: true });
+
+  try {
+    const response = await fetch(`/api/share/${encodeURIComponent(shareToken)}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: abortController.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Shared project request failed with ${response.status}`);
+    }
+
+    return (await response.json()) as SharedProjectData;
+  } finally {
+    window.clearTimeout(timeout);
+    signal?.removeEventListener("abort", abort);
+  }
+}
+
 export function SharedProject() {
   const { shareToken } = useParams<{ shareToken: string }>();
-  const [, navigate] = useLocation();
-  const { data: project, isLoading, isError } = useGetSharedProject(shareToken);
+  const { data: project, isLoading, isError, error } = useQuery({
+    queryKey: ["public-shared-project", shareToken],
+    queryFn: ({ signal }) => fetchPublicSharedProject(shareToken, signal),
+    enabled: !!shareToken,
+    retry: 1,
+  });
   const { play, currentTrack, isPlaying, pause, resume, setPlayingSource, playingSequenceId } = useAudioPlayer();
   const [selectedSeqId, setSelectedSeqId] = useState<string | null>(null);
   const [linerNotesOpen, setLinerNotesOpen] = useState(false);
   const [cacheProgress, setCacheProgress] = useState<{ downloaded: number; total: number } | null>(null);
   const cacheBatchRef = useRef<AbortController | null>(null);
 
-  // Listening is gated behind team membership: the visitor must be signed in
-  // AND belong to the team that owns the project. Anyone else sees a "join to
-  // listen" CTA that routes them through the team's invite link.
-  const { isSignedIn, isLoaded: userLoaded } = useAuth();
-  const { data: myTeams } = useListTeams({ query: { enabled: !!isSignedIn } });
-  const viewerHasAccess = !!(
-    project?.teamId && isSignedIn && myTeams?.some(t => t.id === project.teamId)
-  );
-  // Where to send a viewer who clicks Play but isn't part of the team yet:
-  // - Not signed in: send to sign-up. Use ?invite=TOKEN when available so
-  //   they auto-join after signup; otherwise fall back to ?redirect=/share/X
-  //   so they at least return to this page.
-  // - Signed in but not a member: send to /join/TOKEN if we have one,
-  //   otherwise back to the dashboard with a notice.
-  const goJoin = () => {
-    const inviteToken = project?.teamInviteToken ?? null;
-    if (!isSignedIn) {
-      if (inviteToken) {
-        navigate(`/sign-up?invite=${inviteToken}`);
-      } else {
-        const back = encodeURIComponent(`/share/${shareToken}`);
-        navigate(`/sign-up?redirect=${back}`);
-      }
-      return;
-    }
-    if (inviteToken) {
-      navigate(`/join/${inviteToken}`);
-    } else {
-      // No invite token on this team — best we can do is bounce to dashboard.
-      navigate("/dashboard");
-    }
-  };
+  const viewerHasAccess = true;
 
   const activeSeqId = selectedSeqId || project?.sequences?.[0]?.id || null;
   const activeSeq = project?.sequences?.find(s => s.id === activeSeqId);
+
+  useEffect(() => {
+    if (error) {
+      reportError(error, { area: "share", action: "load public project" });
+    }
+  }, [error]);
 
   // Use the explicitly-set sequence ID from context — this is set each time we
   // start a new sequence and is unambiguous even when the same track appears in
@@ -147,7 +151,6 @@ export function SharedProject() {
   // When a track finishes via the audio element, its data is cached for next time.
   // We also pre-cache any track we start playing.
   const playSharedTrack = (track: SequenceTrack, queue: SequenceTrack[]) => {
-    if (!viewerHasAccess) { goJoin(); return; }
     const albumCover = project?.coverImageUrl ?? null;
     const toPlayer = (t: SequenceTrack) => ({
       id: t.trackId,
@@ -295,7 +298,6 @@ export function SharedProject() {
             <div className="flex items-center gap-4 mb-5 mt-2">
               <button
                 onClick={() => {
-                  if (!viewerHasAccess) { goJoin(); return; }
                   if (seqIsInPlayer) {
                     isPlaying ? pause() : resume();
                   } else {
@@ -303,13 +305,9 @@ export function SharedProject() {
                   }
                 }}
                 className="w-14 h-14 rounded-full bg-primary flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-primary/30 flex-shrink-0"
-                title={!viewerHasAccess ? `Join ${project.teamName ?? "the team"} to listen` : seqIsPlaying ? "Pause" : "Play"}
+                title={seqIsPlaying ? "Pause" : "Play"}
               >
-                {!viewerHasAccess ? (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="black">
-                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/>
-                  </svg>
-                ) : seqIsPlaying ? (
+                {seqIsPlaying ? (
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="black">
                     <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
                   </svg>
@@ -471,35 +469,6 @@ export function SharedProject() {
           <span className="text-xs text-muted-foreground">Powered by Syncr</span>
         </div>
       </div>
-
-      {/* Gating banner: shown to anyone who isn't a member of the project's team */}
-      {userLoaded && !viewerHasAccess && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 sm:pb-6 pointer-events-none">
-          <div className="max-w-2xl mx-auto pointer-events-auto bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
-              {project.teamImageUrl ? (
-                <img src={project.teamImageUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <Logo size={18} />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate">
-                {project.teamName ?? "This team"} has shared a project
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {isSignedIn ? "Join them to listen" : "Sign up to listen"}
-              </p>
-            </div>
-            <button
-              onClick={goJoin}
-              className="text-xs font-bold uppercase tracking-wide bg-primary text-primary-foreground px-4 py-2 rounded-full hover:opacity-90 transition-opacity flex-shrink-0"
-            >
-              {isSignedIn ? "Join" : "Sign up"}
-            </button>
-          </div>
-        </div>
-      )}
 
       <SharedProjectWelcomeModal
         shareToken={shareToken}

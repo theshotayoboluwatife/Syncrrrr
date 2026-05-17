@@ -21,7 +21,7 @@ class AudioCacheService {
   /** URLs currently being downloaded — prevents duplicate fetches */
   private downloading = new Set<string>();
 
-  /** Async function that returns auth headers (set from ClerkAuthTokenSetter) */
+  /** Async function that returns auth headers for protected audio requests. */
   private authGetter: AuthGetter | null = null;
 
   /** AbortController per batch — lets us cancel on unmount */

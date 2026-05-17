@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
 import { Logo } from "@/components/Logo";
+import { reportError } from "@/lib/error-reporting";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -56,6 +57,7 @@ export function SignInPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
+      reportError(error, { area: "auth", action: "email sign in" });
       setError(error.message);
     } else {
       navigate(afterUrl);
@@ -64,12 +66,18 @@ export function SignInPage() {
 
   const handleGoogleSignIn = async () => {
     setError("");
-    const redirectTo = `${window.location.origin}${basePath}${afterUrl}`;
+    const redirectTo = `${window.location.origin}${basePath}/auth/callback?redirect=${encodeURIComponent(afterUrl)}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo },
+      options: {
+        redirectTo,
+        queryParams: { prompt: "select_account" },
+      },
     });
-    if (error) setError(error.message);
+    if (error) {
+      reportError(error, { area: "auth", action: "google sign in" });
+      setError(error.message);
+    }
   };
 
   const signUpUrl = invite

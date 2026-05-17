@@ -12,7 +12,10 @@ import type { Track } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { analyzeAudioFile, extractCoverArt } from "@/lib/audio-analyzer";
+import { uploadFileToStorage } from "@/lib/storage-upload";
 import { Logo } from "@/components/Logo";
+import { UserAvatar } from "@/components/UserAvatar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 function fmtDuration(s: number | null | undefined) {
   if (s == null || isNaN(s)) return "--:--";
@@ -29,13 +32,6 @@ function camelotColor(key: string | null) {
     "9": "#ff5722", "10": "#4caf50", "11": "#00bcd4", "12": "#673ab7",
   };
   return colors[String(parseInt(key))] || "#555";
-}
-
-function tintFor(seed: string) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
-  const hue = Math.abs(h) % 360;
-  return `hsl(${hue} 60% 45%)`;
 }
 
 function TrackCover({ url }: { url: string | null | undefined }) {
@@ -56,28 +52,7 @@ function TrackCover({ url }: { url: string | null | undefined }) {
 }
 
 function UploaderAvatar({ name, avatarUrl, size = 22 }: { name: string | null; avatarUrl: string | null; size?: number }) {
-  const initial = (name || "?").trim().charAt(0).toUpperCase() || "?";
-  const tint = tintFor(name || "?");
-  if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt={name || "uploader"}
-        title={name || "Unknown uploader"}
-        className="rounded-full object-cover ring-1 ring-border/40 flex-shrink-0"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-  return (
-    <div
-      title={name || "Unknown uploader"}
-      className="rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 ring-1 ring-border/40"
-      style={{ width: size, height: size, background: tint, fontSize: Math.round(size * 0.45) }}
-    >
-      {initial}
-    </div>
-  );
+  return <UserAvatar avatarUrl={avatarUrl} name={name || "Unknown uploader"} seed={name} size={size} className="ring-1 ring-border/40" title={name || "Unknown uploader"} />;
 }
 
 function TrackRow({
@@ -114,7 +89,7 @@ function TrackRow({
 
   return (
     <div
-      className={`grid grid-cols-[24px_40px_1fr_28px_60px_60px_70px_80px] sm:grid-cols-[32px_44px_1fr_28px_80px_70px_90px_100px] items-center gap-3 px-3 sm:px-4 py-2.5 group rounded-md ${
+      className={`grid grid-cols-[24px_40px_1fr_28px_80px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-3 px-3 sm:px-4 py-2.5 group rounded-md ${
         isPlaying ? "bg-primary/10" : "hover:bg-accent/40"
       } transition-colors`}
     >
@@ -169,30 +144,6 @@ function TrackRow({
         <UploaderAvatar name={track.uploaderName} avatarUrl={track.uploaderAvatarUrl} />
       </div>
 
-      {/* Duration */}
-      <div className="text-xs tabular-nums text-muted-foreground text-right hidden sm:block">
-        {fmtDuration(track.durationSeconds)}
-      </div>
-
-      {/* BPM */}
-      <div className="text-xs tabular-nums text-muted-foreground text-right hidden sm:block">
-        {track.bpm ? `${Math.round(track.bpm)} BPM` : "—"}
-      </div>
-
-      {/* Camelot key */}
-      <div className="flex items-center justify-end hidden sm:flex">
-        {track.camelotKey ? (
-          <span
-            className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-            style={{ background: camelotColor(track.camelotKey) + "33", color: camelotColor(track.camelotKey) }}
-          >
-            {track.camelotKey}
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground/40">—</span>
-        )}
-      </div>
-
       {/* Actions */}
       <div className="flex items-center justify-end gap-1">
         <button
@@ -234,6 +185,7 @@ export function PersonalLibrary() {
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [uploadBatch, setUploadBatch] = useState<{ current: number; total: number } | null>(null);
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
+  const [trackToDelete, setTrackToDelete] = useState<Track | null>(null);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListMyTracksQueryKey() });
@@ -250,16 +202,12 @@ export function PersonalLibrary() {
         const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
           data: { name: file.name, size: file.size, contentType: file.type || "audio/mpeg" },
         });
-        await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setUploadProgress(p => ({ ...p, [file.name]: (e.loaded / e.total) * 100 }));
-          };
-          xhr.onload = () => resolve();
-          xhr.onerror = reject;
-          xhr.open("PUT", uploadURL);
-          xhr.setRequestHeader("Content-Type", file.type || "audio/mpeg");
-          xhr.send(file);
+        await uploadFileToStorage({
+          uploadURL,
+          file,
+          contentType: file.type || "audio/mpeg",
+          onProgress: (percent) =>
+            setUploadProgress((p) => ({ ...p, [file.name]: percent })),
         });
         setUploadProgress(p => { const n = { ...p }; delete n[file.name]; return n; });
 
@@ -275,7 +223,11 @@ export function PersonalLibrary() {
                 contentType: coverBlob.type,
               },
             });
-            await fetch(cover.uploadURL, { method: "PUT", headers: { "Content-Type": coverBlob.type }, body: coverBlob });
+            await uploadFileToStorage({
+              uploadURL: cover.uploadURL,
+              file: coverBlob,
+              contentType: coverBlob.type,
+            });
             coverObjectPath = `/api/storage${cover.objectPath}`;
           }
         } catch (e) {
@@ -318,6 +270,13 @@ export function PersonalLibrary() {
       { id: track.id, title: track.title, fileUrl: track.fileUrl, coverImageUrl: track.coverImageUrl, durationSeconds: track.durationSeconds, bpm: track.bpm, camelotKey: track.camelotKey },
       tracks.map(t => ({ id: t.id, title: t.title, fileUrl: t.fileUrl, coverImageUrl: t.coverImageUrl, durationSeconds: t.durationSeconds, bpm: t.bpm, camelotKey: t.camelotKey })),
     );
+  };
+
+  const handleConfirmDeleteTrack = async () => {
+    if (!trackToDelete) return;
+    await deleteTrack.mutateAsync({ trackId: trackToDelete.id });
+    setTrackToDelete(null);
+    invalidate();
   };
 
   return (
@@ -389,14 +348,11 @@ export function PersonalLibrary() {
           {tracks && tracks.length > 0 ? (
             <>
               {/* Column headers */}
-              <div className="grid grid-cols-[24px_40px_1fr_28px_60px_60px_70px_80px] sm:grid-cols-[32px_44px_1fr_28px_80px_70px_90px_100px] items-center gap-3 px-3 sm:px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 mb-2">
+              <div className="grid grid-cols-[24px_40px_1fr_28px_80px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-3 px-3 sm:px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 mb-2">
                 <span>#</span>
                 <span></span>
                 <span>Title</span>
                 <span></span>
-                <span className="text-right hidden sm:block">Time</span>
-                <span className="text-right hidden sm:block">BPM</span>
-                <span className="text-right hidden sm:block">Key</span>
                 <span></span>
               </div>
               {tracks.map((track, i) => (
@@ -411,11 +367,7 @@ export function PersonalLibrary() {
                     await updateTrack.mutateAsync({ trackId: track.id, data: { title } });
                     invalidate();
                   }}
-                  onDelete={async () => {
-                    if (!confirm(`Delete "${track.title}" from your library?`)) return;
-                    await deleteTrack.mutateAsync({ trackId: track.id });
-                    invalidate();
-                  }}
+                  onDelete={() => setTrackToDelete(track)}
                 />
               ))}
             </>
@@ -444,6 +396,16 @@ export function PersonalLibrary() {
           )}
         </div>
       </div>
+      {trackToDelete && (
+        <ConfirmDialog
+          title="Delete track?"
+          description={`"${trackToDelete.title}" will be removed from your personal library.`}
+          confirmLabel="Delete track"
+          isLoading={deleteTrack.isPending}
+          onCancel={() => setTrackToDelete(null)}
+          onConfirm={handleConfirmDeleteTrack}
+        />
+      )}
     </div>
   );
 }

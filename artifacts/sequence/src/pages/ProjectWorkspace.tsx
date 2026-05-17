@@ -26,6 +26,7 @@ import {
   useCreateTrack,
   useCreateSequence,
   useDeleteTrack,
+  useDeleteProject,
   useDeleteSequence,
   useDuplicateSequence,
   useUpdateSequence,
@@ -43,6 +44,7 @@ import {
   useRemoveProjectMember,
   useListTeamMembers,
   useListTeams,
+  getListProjectsQueryKey,
   getListProjectMembersQueryKey,
   getListTracksQueryKey,
   getListTeamTracksQueryKey,
@@ -56,8 +58,26 @@ import { analyzeAudioFile, extractCoverArt } from "@/lib/audio-analyzer";
 import { ProjectCover } from "@/lib/svg-generator";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { audioCacheService } from "@/lib/audio-cache";
+import { uploadFileToStorage } from "@/lib/storage-upload";
+import { reportError } from "@/lib/error-reporting";
+import { UserAvatar } from "@/components/UserAvatar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function shareExpiryFromNow(days: number) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function formatShareExpiry(value?: string | null) {
+  if (!value) return "Not set";
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 function formatDuration(s: number | null | undefined) {
   if (s == null || isNaN(s)) return "--:--";
@@ -78,35 +98,8 @@ function camelotColor(key: string | null) {
 }
 
 // Shimmer skeleton for a loading track row
-function tintFor(seed: string) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
-  return `hsl(${Math.abs(h) % 360} 60% 45%)`;
-}
-
 function UploaderAvatar({ name, avatarUrl, size = 22 }: { name: string | null | undefined; avatarUrl: string | null | undefined; size?: number }) {
-  const initial = (name || "?").trim().charAt(0).toUpperCase() || "?";
-  const tint = tintFor(name || "?");
-  if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt={name || "uploader"}
-        title={name || "Unknown uploader"}
-        className="rounded-full object-cover ring-1 ring-border/40 flex-shrink-0"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-  return (
-    <div
-      title={name || "Unknown uploader"}
-      className="rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 ring-1 ring-border/40"
-      style={{ width: size, height: size, background: tint, fontSize: Math.round(size * 0.45) }}
-    >
-      {initial}
-    </div>
-  );
+  return <UserAvatar avatarUrl={avatarUrl} name={name || "Unknown uploader"} seed={name} size={size} className="ring-1 ring-border/40" title={name || "Unknown uploader"} />;
 }
 
 function TrackRowSkeleton({ index }: { index: number }) {
@@ -419,9 +412,17 @@ export function ProjectWorkspace() {
   const [linerNotesExpanded, setLinerNotesExpanded] = useState(false);
   const [editingLinerNotes, setEditingLinerNotes] = useState(false);
   const [linerNotesInput, setLinerNotesInput] = useState("");
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleInput, setTitleInput] = useState("");
+  const [showEditDetails, setShowEditDetails] = useState(false);
+  const [detailsTitle, setDetailsTitle] = useState("");
+  const [detailsImageFile, setDetailsImageFile] = useState<File | null>(null);
+  const [detailsImagePreview, setDetailsImagePreview] = useState<string | null>(null);
+  const [detailsSaving, setDetailsSaving] = useState(false);
+  const [confirmDeleteProject, setConfirmDeleteProject] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [creatingSequence, setCreatingSequence] = useState(false);
+  const [sequenceToDelete, setSequenceToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [sequenceTrackToRemove, setSequenceTrackToRemove] = useState<{ trackId: string; title: string; sequenceId: string } | null>(null);
+  const [libraryTrackToDelete, setLibraryTrackToDelete] = useState<{ id: string; title: string; isTeamLinked: boolean } | null>(null);
 
   // Team-owner per-project access control. The "Project access" section
   // inside the share modal is gated on (showShareModal && teamId && team owner).
@@ -449,7 +450,7 @@ export function ProjectWorkspace() {
   const [uploadBatch, setUploadBatch] = useState<{ current: number; total: number } | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
+  const detailsImageInputRef = useRef<HTMLInputElement>(null);
 
   // Optimistic local track order for drag-and-drop (avoids snap-back)
   const [localOrderIds, setLocalOrderIds] = useState<string[] | null>(null);
@@ -515,6 +516,7 @@ export function ProjectWorkspace() {
   const addTeamTrackToProject = useAddTeamTrackToProject();
   const addMyTrackToProject = useAddMyTrackToProject();
   const createSequence = useCreateSequence();
+  const deleteProject = useDeleteProject();
   const deleteSequence = useDeleteSequence();
   const duplicateSequence = useDuplicateSequence();
   const updateSequence = useUpdateSequence();
@@ -523,6 +525,20 @@ export function ProjectWorkspace() {
   const removeTrackFromSeq = useRemoveTrackFromSequence();
   const reorderTracks = useReorderSequenceTracks();
   const requestUploadUrl = useRequestUploadUrl();
+
+  React.useEffect(() => {
+    if (!showEditDetails || !project) return;
+    setDetailsTitle(project.title);
+    setDetailsImageFile(null);
+    setDetailsImagePreview(null);
+    setConfirmDeleteProject(false);
+  }, [showEditDetails, project?.id, project?.title, project?.coverImageUrl]);
+
+  React.useEffect(() => {
+    return () => {
+      if (detailsImagePreview) URL.revokeObjectURL(detailsImagePreview);
+    };
+  }, [detailsImagePreview]);
 
   // Auto-select first sequence
   React.useEffect(() => {
@@ -583,6 +599,15 @@ export function ProjectWorkspace() {
     queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
   }, [queryClient, projectId, teamId, selectedSeqId]);
 
+  const updateProjectCaches = useCallback((updated: any) => {
+    queryClient.setQueryData(getGetProjectQueryKey(projectId), updated);
+    queryClient.setQueryData(getListProjectsQueryKey(), (old: any) =>
+      Array.isArray(old)
+        ? old.map((item) => (item.id === projectId ? { ...item, ...updated } : item))
+        : old,
+    );
+  }, [queryClient, projectId]);
+
   const handleUpload = async (files: FileList | null) => {
     if (!files) return;
     const list = Array.from(files);
@@ -596,17 +621,12 @@ export function ProjectWorkspace() {
           data: { name: file.name, size: file.size, contentType: file.type || "audio/mpeg" }
         });
 
-        // Upload via XHR for progress
-        await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setUploadProgress(p => ({ ...p, [file.name]: (e.loaded / e.total) * 100 }));
-          };
-          xhr.onload = () => resolve();
-          xhr.onerror = reject;
-          xhr.open("PUT", uploadURL);
-          xhr.setRequestHeader("Content-Type", file.type || "audio/mpeg");
-          xhr.send(file);
+        await uploadFileToStorage({
+          uploadURL,
+          file,
+          contentType: file.type || "audio/mpeg",
+          onProgress: (percent) =>
+            setUploadProgress((p) => ({ ...p, [file.name]: percent })),
         });
 
         setUploadProgress(p => { const n = { ...p }; delete n[file.name]; return n; });
@@ -625,7 +645,11 @@ export function ProjectWorkspace() {
                 contentType: coverBlob.type,
               },
             });
-            await fetch(cover.uploadURL, { method: "PUT", headers: { "Content-Type": coverBlob.type }, body: coverBlob });
+            await uploadFileToStorage({
+              uploadURL: cover.uploadURL,
+              file: coverBlob,
+              contentType: coverBlob.type,
+            });
             // Store the full served URL ("/api/storage/objects/...") so <img src> works directly.
             coverObjectPath = `/api/storage${cover.objectPath}`;
           }
@@ -664,19 +688,27 @@ export function ProjectWorkspace() {
   };
 
   const handleCreateSequence = async () => {
-    const seq = await createSequence.mutateAsync({
-      projectId,
-      data: { name: `Sequence ${(sequences?.length || 0) + 1}` }
-    });
-    if (tracks && tracks.length > 0) {
-      await Promise.all(
-        tracks.map(t =>
-          addTrackToSeq.mutateAsync({ projectId, sequenceId: seq.id, data: { trackId: t.id } })
-        )
-      );
+    if (creatingSequence) return;
+    setCreatingSequence(true);
+    try {
+      const seq = await createSequence.mutateAsync({
+        projectId,
+        data: { name: `Sequence ${(sequences?.length || 0) + 1}` }
+      });
+      if (tracks && tracks.length > 0) {
+        await Promise.all(
+          tracks.map(t =>
+            addTrackToSeq.mutateAsync({ projectId, sequenceId: seq.id, data: { trackId: t.id } })
+          )
+        );
+      }
+      setSelectedSeqId(seq.id);
+      invalidate();
+    } catch (error) {
+      reportError(error, { area: "sequences", action: "create sequence" });
+    } finally {
+      setCreatingSequence(false);
     }
-    setSelectedSeqId(seq.id);
-    invalidate();
   };
 
   const handleDuplicateSeq = async () => {
@@ -689,11 +721,15 @@ export function ProjectWorkspace() {
   const handleDeleteSeq = async () => {
     if (!selectedSeqId || !sequences) return;
     const seq = sequences.find(s => s.id === selectedSeqId);
-    const name = seq?.name || "this sequence";
-    if (!confirm(`Delete "${name}"? This can't be undone. Tracks in your library will not be removed.`)) return;
-    await deleteSequence.mutateAsync({ projectId, sequenceId: selectedSeqId });
-    const remaining = sequences.filter(s => s.id !== selectedSeqId);
+    setSequenceToDelete({ id: selectedSeqId, name: seq?.name || "this sequence" });
+  };
+
+  const handleConfirmDeleteSeq = async () => {
+    if (!sequenceToDelete || !sequences) return;
+    await deleteSequence.mutateAsync({ projectId, sequenceId: sequenceToDelete.id });
+    const remaining = sequences.filter(s => s.id !== sequenceToDelete.id);
     setSelectedSeqId(remaining[0]?.id || null);
+    setSequenceToDelete(null);
     invalidate();
   };
 
@@ -705,7 +741,21 @@ export function ProjectWorkspace() {
 
   const handleSaveLinerNotes = async () => {
     if (!selectedSeqId) { setEditingLinerNotes(false); return; }
-    await updateSequence.mutateAsync({ projectId, sequenceId: selectedSeqId, data: { linerNotes: linerNotesInput.trim() || null } });
+    const updated = await updateSequence.mutateAsync({
+      projectId,
+      sequenceId: selectedSeqId,
+      data: { linerNotes: linerNotesInput.trim() || null },
+    });
+    queryClient.setQueryData(getListSequencesQueryKey(projectId), (old: any) =>
+      Array.isArray(old)
+        ? old.map((seq) => (seq.id === selectedSeqId ? { ...seq, linerNotes: updated.linerNotes ?? null } : seq))
+        : old,
+    );
+    queryClient.setQueryData(getGetSequenceQueryKey(projectId, selectedSeqId), (old: any) =>
+      old ? { ...old, linerNotes: updated.linerNotes ?? null } : old,
+    );
+    queryClient.invalidateQueries({ queryKey: getListSequencesQueryKey(projectId) });
+    queryClient.invalidateQueries({ queryKey: getGetSequenceQueryKey(projectId, selectedSeqId) });
     setEditingLinerNotes(false);
   };
 
@@ -745,9 +795,17 @@ export function ProjectWorkspace() {
   const handleRemoveFromSeq = async (trackId: string) => {
     if (!selectedSeqId) return;
     const t = selectedSequence?.tracks.find(st => st.trackId === trackId);
-    const name = t?.title || "this track";
-    if (!confirm(`Remove "${name}" from this sequence? The track will stay in your library.`)) return;
-    await removeTrackFromSeq.mutateAsync({ projectId, sequenceId: selectedSeqId, trackId });
+    setSequenceTrackToRemove({ trackId, title: t?.title || "this track", sequenceId: selectedSeqId });
+  };
+
+  const handleConfirmRemoveFromSeq = async () => {
+    if (!sequenceTrackToRemove) return;
+    await removeTrackFromSeq.mutateAsync({
+      projectId,
+      sequenceId: sequenceTrackToRemove.sequenceId,
+      trackId: sequenceTrackToRemove.trackId,
+    });
+    setSequenceTrackToRemove(null);
     invalidate();
   };
 
@@ -778,38 +836,75 @@ export function ProjectWorkspace() {
     }
   };
 
-  const shareUrl = `${window.location.origin}/api/og/${project?.shareToken}`;
+  const shareUrl = `${window.location.origin}${basePath}/share/${project?.shareToken}`;
+  const canDeleteProject = teamId ? isTeamOwner : true;
 
-  const handleSaveTitle = async () => {
-    if (!titleInput.trim() || titleInput.trim() === project?.title) { setEditingTitle(false); return; }
-    await updateProject.mutateAsync({ projectId, data: { title: titleInput.trim() } });
+  const handleShareDurationChange = async (days: number) => {
+    const updated = await updateProject.mutateAsync({
+      projectId,
+      data: { shareExpiresAt: shareExpiryFromNow(days) },
+    });
+    updateProjectCaches(updated);
     invalidate();
-    setEditingTitle(false);
   };
 
-  const handleCoverUpload = async (file: File) => {
+  const handleDetailsImageSelect = (file: File | undefined) => {
     if (!file) return;
-    setCoverUploading(true);
+    if (detailsImagePreview) URL.revokeObjectURL(detailsImagePreview);
+    setDetailsImageFile(file);
+    setDetailsImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveProjectDetails = async () => {
+    if (!project) return;
+    const title = detailsTitle.trim();
+    if (!title) return;
+    setDetailsSaving(true);
     try {
-      const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
-        data: { name: file.name, size: file.size, contentType: file.type || "image/jpeg" }
-      });
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = () => resolve();
-        xhr.onerror = reject;
-        xhr.open("PUT", uploadURL);
-        xhr.setRequestHeader("Content-Type", file.type || "image/jpeg");
-        xhr.send(file);
-      });
-      const publicUrl = `/api/storage${objectPath}`;
-      await updateProject.mutateAsync({ projectId, data: { coverImageUrl: publicUrl } });
-      invalidate();
-    } catch (err) {
-      console.error("Cover upload error:", err);
+      const data: { title?: string; coverImageUrl?: string | null } = {};
+      if (title !== project.title) data.title = title;
+      if (detailsImageFile) {
+        setCoverUploading(true);
+        const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
+          data: {
+            name: detailsImageFile.name,
+            size: detailsImageFile.size,
+            contentType: detailsImageFile.type || "image/jpeg",
+          },
+        });
+        await uploadFileToStorage({
+          uploadURL,
+          file: detailsImageFile,
+          contentType: detailsImageFile.type || "image/jpeg",
+        });
+        data.coverImageUrl = `/api/storage${objectPath}`;
+      }
+
+      if (Object.keys(data).length > 0) {
+        const updated = await updateProject.mutateAsync({ projectId, data });
+        updateProjectCaches(updated);
+        invalidate();
+      }
+      setShowEditDetails(false);
+    } catch (error) {
+      reportError(error, { area: "projects", action: "update project details" });
     } finally {
       setCoverUploading(false);
+      setDetailsSaving(false);
     }
+  };
+
+  const handleDeleteProject = async () => {
+    await deleteProject.mutateAsync({ projectId });
+    queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+    navigate(teamId ? `/dashboard?team=${teamId}` : "/dashboard");
+  };
+
+  const handleConfirmDeleteLibraryTrack = async () => {
+    if (!libraryTrackToDelete) return;
+    await deleteTrack.mutateAsync({ projectId, trackId: libraryTrackToDelete.id });
+    setLibraryTrackToDelete(null);
+    invalidate();
   };
 
   if (projectLoading) {
@@ -830,57 +925,27 @@ export function ProjectWorkspace() {
           </svg>
         </button>
 
-        {/* Cover art thumbnail */}
-        <div
-          className="relative w-9 h-9 rounded overflow-hidden flex-shrink-0 cursor-pointer group/cover"
-          onClick={() => coverInputRef.current?.click()}
-          title="Change cover art"
-        >
+        <div className="relative w-9 h-9 rounded overflow-hidden flex-shrink-0">
           <ProjectCover coverImageUrl={project?.coverImageUrl} size={36} />
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center">
-            {coverUploading ? (
-              <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
-                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-              </svg>
-            )}
-          </div>
         </div>
-        <input
-          ref={coverInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => { if (e.target.files?.[0]) handleCoverUpload(e.target.files[0]); }}
-        />
 
-        {/* Project title — click to edit */}
         <div className="flex-1 min-w-0">
-          {editingTitle ? (
-            <input
-              autoFocus
-              className="text-sm font-semibold bg-transparent border-b border-primary outline-none text-foreground w-full max-w-xs"
-              value={titleInput}
-              onChange={(e) => setTitleInput(e.target.value)}
-              onBlur={handleSaveTitle}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSaveTitle(); if (e.key === "Escape") setEditingTitle(false); }}
-            />
-          ) : (
-            <button
-              className="text-sm font-semibold text-foreground hover:text-primary transition-colors truncate block max-w-xs text-left"
-              onClick={() => { setTitleInput(project?.title ?? ""); setEditingTitle(true); }}
-              title="Click to rename"
-            >
-              {project?.title}
-            </button>
-          )}
-          {project?.description && !editingTitle && (
+          <p className="truncate max-w-xs text-sm font-semibold text-foreground">{project?.title}</p>
+          {project?.description && (
             <p className="text-xs text-muted-foreground truncate">{project.description}</p>
           )}
         </div>
 
-        {/* Share button */}
+        <button
+          onClick={() => setShowEditDetails(true)}
+          className="flex items-center gap-1.5 text-xs border border-border rounded-full px-3 py-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors flex-shrink-0"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+          </svg>
+          Edit details
+        </button>
+
         <button
           onClick={() => setShowShareModal(true)}
           className="flex items-center gap-1.5 text-xs border border-border rounded-full px-3 py-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors flex-shrink-0"
@@ -1021,14 +1086,7 @@ export function ProjectWorkspace() {
                       invalidate();
                     }}
                     onDelete={async () => {
-                      // For team-linked tracks, this unlinks from the project; otherwise it fully deletes.
-                      const isTeamLinked = !!track.teamId;
-                      const msg = isTeamLinked
-                        ? `Remove "${track.title}" from this project? It will stay in the team library.`
-                        : `Delete "${track.title}"? This cannot be undone.`;
-                      if (!confirm(msg)) return;
-                      await deleteTrack.mutateAsync({ projectId, trackId: track.id });
-                      invalidate();
+                      setLibraryTrackToDelete({ id: track.id, title: track.title, isTeamLinked: !!track.teamId });
                     }}
                   />
                 );
@@ -1100,13 +1158,18 @@ export function ProjectWorkspace() {
             </div>
             <button
               onClick={handleCreateSequence}
+              disabled={creatingSequence}
               className="flex-shrink-0 self-center ml-2 my-1.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-foreground/30 rounded-md px-2 py-1 transition-colors"
               title="New sequence"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              New
+              {creatingSequence ? (
+                <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+              ) : (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+              )}
+              {creatingSequence ? "Creating..." : "New"}
             </button>
           </div>
 
@@ -1275,8 +1338,8 @@ export function ProjectWorkspace() {
             ) : !selectedSeqId ? (
               <div className="flex flex-col items-center justify-center h-full text-center px-4">
                 <p className="text-sm text-muted-foreground mb-4">No sequences yet</p>
-                <button onClick={handleCreateSequence} className="text-sm text-primary hover:underline">
-                  Create a sequence
+                <button onClick={handleCreateSequence} disabled={creatingSequence} className="text-sm text-primary hover:underline disabled:opacity-50">
+                  {creatingSequence ? "Creating sequence..." : "Create a sequence"}
                 </button>
               </div>
             ) : isSeqLoading ? (
@@ -1328,6 +1391,162 @@ export function ProjectWorkspace() {
         </div>
       </div>
 
+      {sequenceToDelete && (
+        <ConfirmDialog
+          title="Delete sequence?"
+          description={`"${sequenceToDelete.name}" will be removed from this project. Tracks in your library will stay where they are.`}
+          confirmLabel="Delete sequence"
+          isLoading={deleteSequence.isPending}
+          onCancel={() => setSequenceToDelete(null)}
+          onConfirm={handleConfirmDeleteSeq}
+        />
+      )}
+
+      {sequenceTrackToRemove && (
+        <ConfirmDialog
+          title="Remove track from sequence?"
+          description={`"${sequenceTrackToRemove.title}" will be removed from this sequence, but it will stay in your library.`}
+          confirmLabel="Remove track"
+          isLoading={removeTrackFromSeq.isPending}
+          onCancel={() => setSequenceTrackToRemove(null)}
+          onConfirm={handleConfirmRemoveFromSeq}
+        />
+      )}
+
+      {libraryTrackToDelete && (
+        <ConfirmDialog
+          title={libraryTrackToDelete.isTeamLinked ? "Remove track from project?" : "Delete track?"}
+          description={
+            libraryTrackToDelete.isTeamLinked
+              ? `"${libraryTrackToDelete.title}" will be removed from this project, but it will stay in the team library.`
+              : `"${libraryTrackToDelete.title}" will be permanently deleted from this project.`
+          }
+          confirmLabel={libraryTrackToDelete.isTeamLinked ? "Remove track" : "Delete track"}
+          isLoading={deleteTrack.isPending}
+          onCancel={() => setLibraryTrackToDelete(null)}
+          onConfirm={handleConfirmDeleteLibraryTrack}
+        />
+      )}
+
+      {/* Edit Details Modal */}
+      {showEditDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowEditDetails(false)}>
+          <div
+            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-sm font-semibold text-foreground">Edit project details</h2>
+              <button onClick={() => setShowEditDetails(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Project image</p>
+                <div className="flex items-center gap-4">
+                  <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                    {detailsImagePreview ? (
+                      <img src={detailsImagePreview} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <ProjectCover coverImageUrl={project?.coverImageUrl} size={96} />
+                    )}
+                    {coverUploading && (
+                      <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => detailsImageInputRef.current?.click()}
+                      className="px-3 py-2 text-xs font-medium border border-border rounded-lg text-foreground hover:bg-accent transition-colors"
+                    >
+                      Choose image
+                    </button>
+                    {detailsImageFile && (
+                      <p className="text-xs text-muted-foreground mt-2 truncate max-w-[180px]">{detailsImageFile.name}</p>
+                    )}
+                  </div>
+                  <input
+                    ref={detailsImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleDetailsImageSelect(e.target.files?.[0])}
+                  />
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="text-xs font-medium text-muted-foreground">Project name</span>
+                <input
+                  value={detailsTitle}
+                  onChange={(e) => setDetailsTitle(e.target.value)}
+                  className="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                  placeholder="Project name"
+                />
+              </label>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowEditDetails(false)}
+                  className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProjectDetails}
+                  disabled={detailsSaving || !detailsTitle.trim()}
+                  className="px-3 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {detailsSaving ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+
+              {canDeleteProject && (
+                <div className="border-t border-border pt-5">
+                  <p className="text-sm font-medium text-destructive">Delete project</p>
+                  <p className="text-xs text-muted-foreground mt-1">This permanently removes the project and its sequences.</p>
+                  {!confirmDeleteProject ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteProject(true)}
+                      className="mt-3 px-3 py-2 text-xs font-medium border border-destructive/50 text-destructive rounded-lg hover:bg-destructive/10 transition-colors"
+                    >
+                      Delete project
+                    </button>
+                  ) : (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Are you sure?</span>
+                      <button
+                        type="button"
+                        onClick={handleDeleteProject}
+                        disabled={deleteProject.isPending}
+                        className="px-3 py-2 text-xs font-medium bg-destructive text-white rounded-lg hover:opacity-90 disabled:opacity-50"
+                      >
+                        {deleteProject.isPending ? "Deleting..." : "Yes, delete"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteProject(false)}
+                        className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Share Modal */}
       {showShareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShareModal(false)}>
@@ -1371,6 +1590,34 @@ export function ProjectWorkspace() {
                 </div>
               </div>
             )}
+
+            <div className="mb-4 rounded-lg border border-border bg-background/40 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground">Link expires</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Current expiry: {formatShareExpiry(project?.shareExpiresAt)}
+                  </p>
+                </div>
+                <select
+                  disabled={updateProject.isPending}
+                  defaultValue=""
+                  onChange={(e) => {
+                    const days = Number(e.target.value);
+                    if (!days) return;
+                    handleShareDurationChange(days);
+                    e.currentTarget.value = "";
+                  }}
+                  className="bg-card border border-border rounded-md px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="" disabled>Extend</option>
+                  <option value="1">1 day</option>
+                  <option value="3">3 days</option>
+                  <option value="7">7 days</option>
+                  <option value="30">30 days</option>
+                </select>
+              </div>
+            </div>
 
             {/* Link copy area */}
             <div className="flex items-center gap-2">
@@ -1587,7 +1834,6 @@ export function ProjectWorkspace() {
                   );
                 }
                 return available.map(track => {
-                  const initial = (track.uploaderName || "?").charAt(0).toUpperCase();
                   const checked = pickerSelection.has(track.id);
                   const toggle = () => {
                     setPickerSelection(prev => {
@@ -1620,17 +1866,13 @@ export function ProjectWorkspace() {
                           {track.projectTitle ? ` · in ${track.projectTitle}` : ""}
                         </p>
                       </div>
-                      {track.uploaderAvatarUrl ? (
-                        <img
-                          src={track.uploaderAvatarUrl}
-                          alt={track.uploaderName ?? ""}
-                          className="w-6 h-6 rounded-full object-cover ring-1 ring-border/40 flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-primary/30 flex items-center justify-center text-[10px] font-bold text-foreground flex-shrink-0">
-                          {initial}
-                        </div>
-                      )}
+                      <UserAvatar
+                        avatarUrl={track.uploaderAvatarUrl}
+                        name={track.uploaderName || "Unknown uploader"}
+                        seed={track.uploaderName || track.id}
+                        size={24}
+                        className="ring-1 ring-border/40"
+                      />
                     </label>
                   );
                 });

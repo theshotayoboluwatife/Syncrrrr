@@ -124,7 +124,7 @@ router.get("/og/:shareToken", async (req, res): Promise<void> => {
   const host =
     (req.headers["x-forwarded-host"] as string | undefined) ??
     req.get("host") ??
-    "syncr.replit.app";
+    "localhost:8080";
   const origin = `${proto}://${host}`;
 
   const sharePageUrl = `${origin}/share/${rawToken}`;

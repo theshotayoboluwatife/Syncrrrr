@@ -5,11 +5,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   useListProjects, useCreateProject, getListProjectsQueryKey,
   useListTeams, useCreateTeam, getListTeamsQueryKey,
+  type ProjectSummary,
   type TeamSummary,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Logo } from "@/components/Logo";
+import { SignOutConfirmDialog } from "@/components/SignOutConfirmDialog";
+import { UserAvatar } from "@/components/UserAvatar";
 import { ProjectCover } from "@/lib/svg-generator";
+import { getAuthAvatarUrl, getAuthDisplayName } from "@/lib/auth-user";
 
 const WORKSPACE_KEY = "syncr_workspace";
 
@@ -159,7 +163,7 @@ function TeamAvatar({ name, imageUrl, size = 28 }: { name: string; imageUrl?: st
   );
 }
 
-function ProjectCard({ project, onClick, index }: { project: any; onClick: () => void; index: number }) {
+function ProjectCard({ project, onClick, index }: { project: ProjectSummary; onClick: () => void; index: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -188,6 +192,16 @@ function ProjectCard({ project, onClick, index }: { project: any; onClick: () =>
           {project.trackCount} track{project.trackCount !== 1 ? "s" : ""}
           {project.sequenceCount > 0 && ` · ${project.sequenceCount} sequence${project.sequenceCount !== 1 ? "s" : ""}`}
         </p>
+        <div className="mt-2 flex items-center gap-1.5 min-w-0">
+          <UserAvatar
+            avatarUrl={project.creatorAvatarUrl}
+            name={project.creatorDisplayName}
+            seed={project.createdBy}
+            size={18}
+            className="ring-1 ring-border/40"
+          />
+          <span className="text-[11px] text-muted-foreground truncate">{project.creatorDisplayName}</span>
+        </div>
       </div>
     </motion.div>
   );
@@ -201,6 +215,8 @@ export function Dashboard() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const teamFromUrl = params.get("team");
@@ -227,11 +243,16 @@ export function Dashboard() {
     setSelectedWorkspaceId(team.id);
   };
 
-  const displayName =
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    user?.email?.split("@")[0] ||
-    "User";
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    await signOut();
+    setIsSigningOut(false);
+    setShowSignOutConfirm(false);
+    navigate("/sign-in");
+  };
+
+  const displayName = getAuthDisplayName(user);
+  const avatarUrl = getAuthAvatarUrl(user);
 
   return (
     <div className="h-full bg-background flex overflow-hidden">
@@ -255,13 +276,7 @@ export function Dashboard() {
                 : "text-muted-foreground hover:text-white hover:bg-white/5"
             }`}
           >
-            <div className="w-8 h-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-foreground flex-shrink-0">
-              {user?.user_metadata?.avatar_url ? (
-                <img src={user?.user_metadata?.avatar_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "U").toUpperCase()
-              )}
-            </div>
+            <UserAvatar avatarUrl={avatarUrl} name={displayName} seed={user?.id} size={32} />
             <span className="truncate font-medium">Personal</span>
           </button>
 
@@ -285,7 +300,7 @@ export function Dashboard() {
                   {selectedWorkspaceId === team.id && (
                     <button
                       onClick={() => navigate(`/teams/${team.id}/settings`)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-white opacity-0 group/item-hover:opacity-100 hover:opacity-100 transition-opacity"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-white bg-[#111]/80 transition-colors"
                       title="Team settings"
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
@@ -318,17 +333,11 @@ export function Dashboard() {
               className="flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-muted-foreground hover:text-white hover:bg-white/5 transition-all min-w-0"
               title="Account & settings"
             >
-              <div className="w-6 h-6 rounded-full bg-muted overflow-hidden flex items-center justify-center text-[10px] font-semibold text-foreground flex-shrink-0">
-                {user?.user_metadata?.avatar_url ? (
-                  <img src={user?.user_metadata?.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "U").toUpperCase()
-                )}
-              </div>
+              <UserAvatar avatarUrl={avatarUrl} name={displayName} seed={user?.id} size={24} />
               <span className="truncate">{displayName}</span>
             </button>
             <button
-              onClick={() => signOut()}
+              onClick={() => setShowSignOutConfirm(true)}
               title="Sign out"
               className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-white/5 transition-all flex-shrink-0"
             >
@@ -373,29 +382,47 @@ export function Dashboard() {
               className="w-8 h-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-foreground flex-shrink-0"
               title="Account & settings"
             >
-              {user?.user_metadata?.avatar_url ? (
-                <img src={user?.user_metadata?.avatar_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "U").toUpperCase()
-              )}
+              <UserAvatar avatarUrl={avatarUrl} name={displayName} seed={user?.id} size={32} />
             </button>
           </div>
         </div>
 
-        {/* Mobile library button (when team selected) */}
-        {currentTeam && (
-          <div className="flex sm:hidden px-4 py-2 border-b border-border flex-shrink-0">
+        {/* Mobile quick actions */}
+        <div className="flex sm:hidden px-4 py-2 border-b border-border flex-shrink-0">
+          <div className="flex gap-2 w-full overflow-x-auto scrollbar-none">
             <button
-              onClick={() => navigate(`/teams/${currentTeam.id}/library`)}
-              className="flex items-center justify-center gap-2 w-full text-xs bg-white/8 text-foreground hover:bg-white/12 px-3 py-2 rounded-full font-medium transition-colors border border-border/60"
+              onClick={() => navigate("/library")}
+              className="flex items-center justify-center gap-2 text-xs bg-white/8 text-foreground hover:bg-white/12 px-3 py-2 rounded-full font-medium transition-colors border border-border/60 whitespace-nowrap"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
               </svg>
-              {currentTeam.name} library
+              Personal library
             </button>
+            {currentTeam && (
+              <>
+                <button
+                  onClick={() => navigate(`/teams/${currentTeam.id}/library`)}
+                  className="flex items-center justify-center gap-2 text-xs bg-white/8 text-foreground hover:bg-white/12 px-3 py-2 rounded-full font-medium transition-colors border border-border/60 whitespace-nowrap"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                  </svg>
+                  Team library
+                </button>
+                <button
+                  onClick={() => navigate(`/teams/${currentTeam.id}/settings`)}
+                  className="flex items-center justify-center gap-2 text-xs bg-white/8 text-foreground hover:bg-white/12 px-3 py-2 rounded-full font-medium transition-colors border border-border/60 whitespace-nowrap"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                  </svg>
+                  Settings
+                </button>
+              </>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Mobile workspace selector */}
         <div className="flex sm:hidden items-center gap-2 px-4 py-2.5 border-b border-border overflow-x-auto flex-shrink-0 scrollbar-none">
@@ -408,11 +435,7 @@ export function Dashboard() {
             }`}
           >
             <div className="w-4 h-4 rounded-full bg-muted overflow-hidden flex items-center justify-center text-[10px]">
-              {user?.user_metadata?.avatar_url ? (
-                <img src={user?.user_metadata?.avatar_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "U").toUpperCase()
-              )}
+              <UserAvatar avatarUrl={avatarUrl} name={displayName} seed={user?.id} size={16} />
             </div>
             Personal
           </button>
@@ -482,9 +505,9 @@ export function Dashboard() {
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-white border border-border/60 hover:border-white/20 px-3 py-1.5 rounded-full transition-all"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
                   </svg>
-                  Members
+                  Settings
                 </button>
               </>
             )}
@@ -568,6 +591,13 @@ export function Dashboard() {
           <CreateTeamDialog
             onClose={() => setShowCreateTeam(false)}
             onCreated={handleTeamCreated}
+          />
+        )}
+        {showSignOutConfirm && (
+          <SignOutConfirmDialog
+            isSigningOut={isSigningOut}
+            onCancel={() => setShowSignOutConfirm(false)}
+            onConfirm={handleSignOut}
           />
         )}
       </AnimatePresence>

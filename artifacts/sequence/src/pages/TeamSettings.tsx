@@ -18,24 +18,11 @@ import {
   type TeamMember,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { uploadFileToStorage } from "@/lib/storage-upload";
+import { UserAvatar } from "@/components/UserAvatar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function Avatar({ avatarUrl, displayName, size = 32 }: { avatarUrl: string | null; displayName: string; size?: number }) {
-  const initial = (displayName?.[0] || "?").toUpperCase();
-  return (
-    <div
-      className="rounded-full bg-muted flex items-center justify-center text-xs font-medium text-foreground flex-shrink-0 overflow-hidden"
-      style={{ width: size, height: size }}
-    >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-      ) : (
-        initial
-      )}
-    </div>
-  );
-}
 
 function RoleBadge({ role }: { role: string }) {
   const colors: Record<string, string> = {
@@ -75,6 +62,7 @@ export function TeamSettings() {
   const [inviteRole, setInviteRole] = useState("member");
   const [inviteError, setInviteError] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
   const [copiedInvite, setCopiedInvite] = useState(false);
 
   const currentRole = team?.role ?? "member";
@@ -89,9 +77,19 @@ export function TeamSettings() {
     queryClient.invalidateQueries({ queryKey: getListTeamMembersQueryKey(teamId) });
   };
 
+  const updateTeamCaches = (updated: any) => {
+    queryClient.setQueryData(getGetTeamQueryKey(teamId), updated);
+    queryClient.setQueryData(getListTeamsQueryKey(), (old: any) =>
+      Array.isArray(old)
+        ? old.map((item) => (item.id === teamId ? { ...item, ...updated } : item))
+        : old,
+    );
+  };
+
   const handleRename = async () => {
     if (!teamName.trim()) return;
-    await updateTeam.mutateAsync({ teamId, data: { name: teamName.trim() } });
+    const updated = await updateTeam.mutateAsync({ teamId, data: { name: teamName.trim() } });
+    updateTeamCaches(updated);
     invalidate();
     setIsEditingName(false);
   };
@@ -116,11 +114,10 @@ export function TeamSettings() {
     invalidate();
   };
 
-  const handleRemove = async (userId: string) => {
-    const m = members?.find(x => x.userId === userId);
-    const name = m?.displayName || m?.email || "this member";
-    if (!confirm(`Remove ${name} from the team? They'll lose access to all team projects and tracks.`)) return;
-    await removeMember.mutateAsync({ teamId, userId });
+  const handleConfirmRemoveMember = async () => {
+    if (!memberToRemove?.userId) return;
+    await removeMember.mutateAsync({ teamId, userId: memberToRemove.userId });
+    setMemberToRemove(null);
     invalidate();
   };
 
@@ -170,16 +167,14 @@ export function TeamSettings() {
       const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
         data: { name: file.name, size: file.size, contentType: file.type || "image/jpeg" }
       });
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = () => resolve();
-        xhr.onerror = reject;
-        xhr.open("PUT", uploadURL);
-        xhr.setRequestHeader("Content-Type", file.type || "image/jpeg");
-        xhr.send(file);
+      await uploadFileToStorage({
+        uploadURL,
+        file,
+        contentType: file.type || "image/jpeg",
       });
       const publicUrl = `/api/storage${objectPath}`;
-      await updateTeam.mutateAsync({ teamId, data: { imageUrl: publicUrl } });
+      const updated = await updateTeam.mutateAsync({ teamId, data: { imageUrl: publicUrl } });
+      updateTeamCaches(updated);
       invalidate();
     } catch (err) {
       console.error("Team image upload error:", err);
@@ -225,10 +220,10 @@ export function TeamSettings() {
       </div>
 
       <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
-        {/* Team image */}
+        {/* Team profile */}
         {isOwnerOrAdmin && (
           <section>
-            <h2 className="text-sm font-semibold text-foreground mb-3">Team image</h2>
+            <h2 className="text-sm font-semibold text-foreground mb-3">Team profile</h2>
             <div className="flex items-center gap-4">
               <div
                 className="relative w-16 h-16 rounded-lg overflow-hidden cursor-pointer group/img bg-muted flex-shrink-0"
@@ -242,7 +237,7 @@ export function TeamSettings() {
                     {team.name[0]?.toUpperCase()}
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                <div className={`absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity ${imageUploading ? "opacity-100" : "opacity-75 group-hover/img:opacity-100"}`}>
                   {imageUploading ? (
                     <div className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
@@ -253,7 +248,12 @@ export function TeamSettings() {
                 </div>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Click image to upload a new one</p>
+                <button
+                  onClick={() => imageInputRef.current?.click()}
+                  className="text-xs font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  Change team image
+                </button>
                 <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG up to 5MB</p>
               </div>
               <input
@@ -321,7 +321,7 @@ export function TeamSettings() {
                     key={member.userId ?? member.email}
                     className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-border" : ""}`}
                   >
-                    <Avatar avatarUrl={member.avatarUrl} displayName={member.displayName ?? member.email} size={36} />
+                    <UserAvatar avatarUrl={member.avatarUrl} name={member.displayName ?? member.email} seed={member.email} size={36} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground font-medium truncate">{member.displayName ?? member.email}</p>
                       <p className="text-xs text-muted-foreground truncate">{member.email}</p>
@@ -341,7 +341,7 @@ export function TeamSettings() {
                       )}
                       {isOwnerOrAdmin && member.role !== "owner" && member.userId && (
                         <button
-                          onClick={() => handleRemove(member.userId!)}
+                          onClick={() => setMemberToRemove(member)}
                           className="text-muted-foreground hover:text-destructive transition-colors"
                           title="Remove member"
                         >
@@ -375,7 +375,7 @@ export function TeamSettings() {
                           Invite pending
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground/60">Will join as {inv.role} once they sign up</p>
+                      <p className="text-xs text-muted-foreground/60">Pending invitation · role: {inv.role}</p>
                     </div>
                     <button
                       onClick={() => inv.inviteId && handleCancelInvite(inv.inviteId)}
@@ -403,7 +403,7 @@ export function TeamSettings() {
             <h2 className="text-sm font-semibold text-foreground mb-3">Invite link</h2>
             <div className="bg-card border border-border rounded-lg p-4 space-y-3">
               <p className="text-xs text-muted-foreground">
-                Anyone with this link can join {team.name} as a member. They'll be prompted to sign in or create an account first.
+                Anyone with this link can join {team.name} as a member.
               </p>
               <div className="flex gap-2 items-center">
                 <div className="flex-1 min-w-0 bg-background border border-border rounded-lg px-3 py-2">
@@ -447,7 +447,7 @@ export function TeamSettings() {
             <h2 className="text-sm font-semibold text-foreground mb-3">Invite by email</h2>
             <div className="bg-card border border-border rounded-lg p-4 space-y-3">
               <p className="text-xs text-muted-foreground">
-                Works even if they haven't signed up yet — they'll join automatically once they create an account.
+                Send a direct team invitation to a collaborator.
               </p>
               <div className="flex gap-2">
                 <input
@@ -517,6 +517,16 @@ export function TeamSettings() {
           </section>
         )}
       </div>
+      {memberToRemove && (
+        <ConfirmDialog
+          title="Remove team member?"
+          description={`${memberToRemove.displayName || memberToRemove.email} will lose access to this team and its projects.`}
+          confirmLabel="Remove member"
+          isLoading={removeMember.isPending}
+          onCancel={() => setMemberToRemove(null)}
+          onConfirm={handleConfirmRemoveMember}
+        />
+      )}
     </div>
   );
 }

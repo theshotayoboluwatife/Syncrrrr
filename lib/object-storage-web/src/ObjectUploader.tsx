@@ -13,7 +13,7 @@ interface ObjectUploaderProps {
   /**
    * Function to get upload parameters for each file.
    * IMPORTANT: This receives the file object - use file.name, file.size, file.type
-   * to request per-file presigned URLs from your backend.
+   * to request per-file upload URLs from your backend.
    */
   onGetUploadParameters: (
     file: UppyFile<Record<string, unknown>, Record<string, unknown>>
@@ -50,7 +50,7 @@ interface ObjectUploaderProps {
  * @param props.maxFileSize - Maximum file size in bytes (default: 10MB)
  * @param props.onGetUploadParameters - Function to get upload parameters for each file.
  *   Receives the UppyFile object with file.name, file.size, file.type properties.
- *   Use these to request per-file presigned URLs from your backend. Returns method,
+ *   Use these to request per-file upload URLs from your backend. Returns method,
  *   url, and optional headers for the upload request.
  * @param props.onComplete - Callback function called when upload is complete. Typically
  *   used to make post-upload API calls to update server state and set object ACL
