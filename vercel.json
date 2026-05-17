@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://123.45.67.89.sslip.io/api/:path*"
+      "destination": "https://185.197.250.116.sslip.io/api/:path*"
     },
     {
       "source": "/(.*)",
