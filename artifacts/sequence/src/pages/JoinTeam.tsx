@@ -126,10 +126,6 @@ export function JoinTeam() {
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">You're invited to join</p>
                   <h1 className="text-2xl font-bold text-foreground">{info.teamName}</h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {info.memberCount} member{info.memberCount !== 1 ? "s" : ""}
-                    {info.createdBy ? ` · Created by ${info.createdBy}` : ""}
-                  </p>
                 </div>
               </div>
 

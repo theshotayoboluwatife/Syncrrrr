@@ -5,6 +5,28 @@
   "outputDirectory": "artifacts/sequence/dist/public",
   "rewrites": [
     {
+      "source": "/share/:token",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|[Ww]hats[Aa]pp|[Tt]witterbot|[Ss]lackbot|[Tt]elegram[Bb]ot|[Ll]inked[Ii]n[Bb]ot|[Dd]iscordbot|Pinterest|Googlebot|Bingbot|crawl|spider).*"
+        }
+      ],
+      "destination": "https://185.197.250.116.sslip.io/api/og/share/:token"
+    },
+    {
+      "source": "/join/:token",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|[Ww]hats[Aa]pp|[Tt]witterbot|[Ss]lackbot|[Tt]elegram[Bb]ot|[Ll]inked[Ii]n[Bb]ot|[Dd]iscordbot|Pinterest|Googlebot|Bingbot|crawl|spider).*"
+        }
+      ],
+      "destination": "https://185.197.250.116.sslip.io/api/og/join/:token"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://185.197.250.116.sslip.io/api/:path*"
     },
