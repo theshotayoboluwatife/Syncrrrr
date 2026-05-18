@@ -16,7 +16,8 @@ import { uploadFileToStorage } from "@/lib/storage-upload";
 import { Logo } from "@/components/Logo";
 import { UserAvatar } from "@/components/UserAvatar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { AUDIO_FILE_ACCEPT } from "@/lib/file-accept";
+import { toast } from "@/hooks/use-toast";
+import { AUDIO_FILE_ACCEPT, splitAudioFiles } from "@/lib/file-accept";
 
 function fmtDuration(s: number | null | undefined) {
   if (s == null || isNaN(s)) return "--:--";
@@ -193,8 +194,15 @@ export function PersonalLibrary() {
 
   const handleUpload = async (files: FileList | null) => {
     if (!files) return;
-    const list = Array.from(files);
+    const { accepted: list, rejected } = splitAudioFiles(Array.from(files));
+    if (rejected.length > 0) {
+      toast({
+        title: "Only audio files can be uploaded",
+        description: "Choose MP3, WAV, M4A, AAC, FLAC, OGG, AIFF, or AIF files.",
+      });
+    }
     const total = list.length;
+    if (total === 0) return;
     if (total > 1) setUploadBatch({ current: 0, total });
     for (let i = 0; i < list.length; i++) {
       const file = list[i];

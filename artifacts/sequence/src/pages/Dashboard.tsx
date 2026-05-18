@@ -628,7 +628,6 @@ export function Dashboard() {
                 </>
               ) : (
                 <>
-                  <path d="M4.5 12h3l1.8-4.5 4.2 9 2.1-4.5h3.9" />
                   <path d="M12 5v14" />
                   <path d="M5 12h14" />
                 </>
