@@ -174,6 +174,18 @@ function TeamAvatar({ name, imageUrl, size = 28 }: { name: string; imageUrl?: st
   );
 }
 
+function TeamManageIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 19v-1.2c0-2.2 1.8-4 4-4h1.4" />
+      <path d="M9 10.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+      <path d="M15 9.2a2.4 2.4 0 1 0 0-4.8" />
+      <path d="M16.4 19.1H14v-2.4l4.7-4.7 2.4 2.4-4.7 4.7z" />
+      <path d="m17.8 12.9 2.4 2.4" />
+    </svg>
+  );
+}
+
 function ProjectCard({ project, onClick, index }: { project: ProjectSummary; onClick: () => void; index: number }) {
   return (
     <motion.div
@@ -247,7 +259,6 @@ export function Dashboard() {
   }, [selectedWorkspaceId]);
 
   const currentTeam = teams?.find((t) => t.id === selectedWorkspaceId) ?? null;
-  const canUploadToCurrentWorkspace = !currentTeam || currentTeam.role === "owner" || currentTeam.role === "admin";
 
   const filteredProjects = projects?.filter((p) =>
     selectedWorkspaceId === "personal" ? p.teamId == null : p.teamId === selectedWorkspaceId
@@ -433,9 +444,7 @@ export function Dashboard() {
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-white bg-[#111]/80 transition-colors"
                       title="Team settings"
                     >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-                      </svg>
+                      <TeamManageIcon size={13} />
                     </button>
                   )}
                 </div>
@@ -519,9 +528,7 @@ export function Dashboard() {
                 title="Team settings"
                 aria-label="Team settings"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-                </svg>
+                <TeamManageIcon size={14} />
               </button>
             )}
             <button
@@ -579,19 +586,17 @@ export function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            {canUploadToCurrentWorkspace && (
-              <button
-                onClick={openQuickUpload}
-                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary border border-primary/30 hover:border-primary/60 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-full transition-all font-medium"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M7 17.5h9.2a4.3 4.3 0 0 0 .5-8.57A6 6 0 0 0 5.34 7.3 4.9 4.9 0 0 0 7 17.5z" />
-                  <path d="M12 17V10" />
-                  <path d="m8.9 13.1 3.1-3.1 3.1 3.1" />
-                </svg>
-                Upload track
-              </button>
-            )}
+            <button
+              onClick={openQuickUpload}
+              className="flex items-center gap-1.5 text-xs text-primary hover:text-primary border border-primary/30 hover:border-primary/60 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-full transition-all font-medium"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 17.5h9.2a4.3 4.3 0 0 0 .5-8.57A6 6 0 0 0 5.34 7.3 4.9 4.9 0 0 0 7 17.5z" />
+                <path d="M12 17V10" />
+                <path d="m8.9 13.1 3.1-3.1 3.1 3.1" />
+              </svg>
+              Upload track
+            </button>
             {!currentTeam && (
               <button
                 onClick={() => navigate(`/library`)}
@@ -618,9 +623,7 @@ export function Dashboard() {
                   onClick={() => navigate(`/teams/${currentTeam.id}/settings`)}
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-white border border-border/60 hover:border-white/20 px-3 py-1.5 rounded-full transition-all"
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-                  </svg>
+                  <TeamManageIcon size={13} />
                   Settings
                 </button>
               </>
@@ -733,24 +736,20 @@ export function Dashboard() {
                   </span>
                   <span className="font-semibold">New team</span>
                 </button>
-                {canUploadToCurrentWorkspace && (
-                  <>
-                    <div className="h-px bg-border" />
-                    <button
-                      onClick={openQuickUpload}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-foreground hover:bg-white/8 transition-colors"
-                    >
-                      <span className="w-9 h-9 rounded-full bg-primary/15 text-primary border border-primary/30 flex items-center justify-center flex-shrink-0">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M7 17.5h9.2a4.3 4.3 0 0 0 .5-8.57A6 6 0 0 0 5.34 7.3 4.9 4.9 0 0 0 7 17.5z" />
-                          <path d="M12 17V10" />
-                          <path d="m8.9 13.1 3.1-3.1 3.1 3.1" />
-                        </svg>
-                      </span>
-                      <span className="font-semibold">Upload track</span>
-                    </button>
-                  </>
-                )}
+                <div className="h-px bg-border" />
+                <button
+                  onClick={openQuickUpload}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-foreground hover:bg-white/8 transition-colors"
+                >
+                  <span className="w-9 h-9 rounded-full bg-primary/15 text-primary border border-primary/30 flex items-center justify-center flex-shrink-0">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 17.5h9.2a4.3 4.3 0 0 0 .5-8.57A6 6 0 0 0 5.34 7.3 4.9 4.9 0 0 0 7 17.5z" />
+                      <path d="M12 17V10" />
+                      <path d="m8.9 13.1 3.1-3.1 3.1 3.1" />
+                    </svg>
+                  </span>
+                  <span className="font-semibold">Upload track</span>
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
