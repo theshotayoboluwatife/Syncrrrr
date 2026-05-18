@@ -93,12 +93,19 @@ function TrackRow({
     if (t && t !== track.title) onRename(t);
     setEditing(false);
   };
+  const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (editing) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button,input")) return;
+    onPlay();
+  };
 
   return (
     <div
+      onClick={handleRowClick}
       className={`grid grid-cols-[40px_minmax(0,1fr)_64px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-2.5 sm:gap-3 px-2.5 sm:px-4 py-2.5 group rounded-md ${
         isPlaying ? "bg-primary/10" : "hover:bg-accent/40"
-      } transition-colors`}
+      } transition-colors cursor-pointer`}
     >
       <button onClick={onPlay} className="hidden sm:flex text-xs tabular-nums text-muted-foreground relative w-6 items-center justify-center">
         <span className={`transition-opacity ${isPlaying ? "opacity-0" : "group-hover:opacity-0"}`}>{index + 1}</span>
@@ -132,8 +139,7 @@ function TrackRow({
         ) : (
           <p
             className={`text-sm truncate ${isPlaying ? "text-primary font-medium" : "text-foreground"}`}
-            onDoubleClick={startEdit}
-            title={canManage ? "Double-click to rename" : track.title}
+            title={track.title}
           >
             {track.title}
           </p>
