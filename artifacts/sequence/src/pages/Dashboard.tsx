@@ -215,6 +215,7 @@ export function Dashboard() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [showMobileCreateMenu, setShowMobileCreateMenu] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(() => {
@@ -391,16 +392,6 @@ export function Dashboard() {
               </button>
             )}
             <button
-              onClick={() => setShowCreate(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground font-medium"
-              title="New project"
-              aria-label="New project"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-            </button>
-            <button
               onClick={() => navigate("/account")}
               className="w-8 h-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold text-foreground flex-shrink-0"
               title="Account & settings"
@@ -439,15 +430,6 @@ export function Dashboard() {
               {team.name}
             </button>
           ))}
-          <button
-            onClick={() => setShowCreateTeam(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs whitespace-nowrap flex-shrink-0 text-muted-foreground border border-border/60 hover:border-white/30 hover:text-white transition-all"
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
-            Team
-          </button>
         </div>
 
         {/* Desktop top bar */}
@@ -562,6 +544,76 @@ export function Dashboard() {
             )}
           </div>
         </div>
+        </div>
+
+        {/* Mobile create FAB */}
+        <div className="sm:hidden fixed right-4 bottom-24 z-40 flex flex-col items-end gap-3">
+          <AnimatePresence>
+            {showMobileCreateMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                className="w-56 rounded-2xl border border-border bg-card/95 shadow-2xl shadow-black/40 backdrop-blur overflow-hidden"
+              >
+                <button
+                  onClick={() => {
+                    setShowMobileCreateMenu(false);
+                    setShowCreate(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-foreground hover:bg-white/8 transition-colors"
+                >
+                  <span className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">New project</span>
+                    <span className="block text-xs text-muted-foreground truncate">
+                      {currentTeam ? currentTeam.name : "Personal workspace"}
+                    </span>
+                  </span>
+                </button>
+                <div className="h-px bg-border" />
+                <button
+                  onClick={() => {
+                    setShowMobileCreateMenu(false);
+                    setShowCreateTeam(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-foreground hover:bg-white/8 transition-colors"
+                >
+                  <span className="w-9 h-9 rounded-full bg-white/10 text-foreground flex items-center justify-center flex-shrink-0">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                    </svg>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">New team</span>
+                    <span className="block text-xs text-muted-foreground truncate">Collaborate with others</span>
+                  </span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <button
+            onClick={() => setShowMobileCreateMenu((open) => !open)}
+            className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-black/50 flex items-center justify-center active:scale-95 transition-transform"
+            title="Create"
+            aria-label={showMobileCreateMenu ? "Close create menu" : "Create project or team"}
+            aria-expanded={showMobileCreateMenu}
+          >
+            <motion.svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              animate={{ rotate: showMobileCreateMenu ? 45 : 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </motion.svg>
+          </button>
         </div>
       </div>
 
