@@ -398,10 +398,11 @@ export function ProjectWorkspace() {
   const { data: sequences, isLoading: sequencesLoading } = useListSequences(projectId);
 
   const [selectedSeqId, setSelectedSeqId] = useState<string | null>(null);
+  const selectedSeqExists = !!selectedSeqId && (!sequences || sequences.some((seq) => seq.id === selectedSeqId));
   const { data: selectedSequence, isLoading: seqLoading } = useGetSequence(
     projectId,
     selectedSeqId || "",
-    { query: { enabled: !!selectedSeqId } }
+    { query: { enabled: selectedSeqExists } }
   );
   const seqTrackCount = sequences?.find(s => s.id === selectedSeqId)?.trackCount ?? 5;
   const isSeqLoading = !!selectedSeqId && seqLoading;
@@ -544,7 +545,12 @@ export function ProjectWorkspace() {
 
   // Auto-select first sequence
   React.useEffect(() => {
-    if (sequences && sequences.length > 0 && !selectedSeqId) {
+    if (!sequences) return;
+    if (selectedSeqId && !sequences.some((seq) => seq.id === selectedSeqId)) {
+      setSelectedSeqId(sequences[0]?.id || null);
+      return;
+    }
+    if (sequences.length > 0 && !selectedSeqId) {
       setSelectedSeqId(sequences[0].id);
     }
   }, [sequences, selectedSeqId]);
@@ -758,10 +764,29 @@ export function ProjectWorkspace() {
 
   const handleConfirmDeleteSeq = async () => {
     if (!sequenceToDelete || !sequences) return;
-    await deleteSequence.mutateAsync({ projectId, sequenceId: sequenceToDelete.id });
-    const remaining = sequences.filter(s => s.id !== sequenceToDelete.id);
-    setSelectedSeqId(remaining[0]?.id || null);
+    const deletingSequence = sequenceToDelete;
+    const remaining = sequences.filter(s => s.id !== deletingSequence.id);
+    const nextSeqId = remaining[0]?.id || null;
+
     setSequenceToDelete(null);
+    setSelectedSeqId(nextSeqId);
+    setLocalOrderIds(null);
+    setLinerNotesExpanded(false);
+    setEditingLinerNotes(false);
+    setEditingSeqName(false);
+    await queryClient.cancelQueries({ queryKey: getGetSequenceQueryKey(projectId, deletingSequence.id) });
+    queryClient.removeQueries({ queryKey: getGetSequenceQueryKey(projectId, deletingSequence.id) });
+    queryClient.setQueryData(getListSequencesQueryKey(projectId), remaining);
+
+    try {
+      await deleteSequence.mutateAsync({ projectId, sequenceId: deletingSequence.id });
+    } catch (error) {
+      setSelectedSeqId(deletingSequence.id);
+      queryClient.setQueryData(getListSequencesQueryKey(projectId), sequences);
+      reportError(error, { area: "sequences", action: "delete sequence" });
+      return;
+    }
+
     updateDashboardProjectCounts({ sequenceCount: -1 });
     invalidate();
   };
