@@ -17,6 +17,7 @@ import { uploadFileToStorage } from "@/lib/storage-upload";
 import { Logo } from "@/components/Logo";
 import { UserAvatar } from "@/components/UserAvatar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { AUDIO_FILE_ACCEPT } from "@/lib/file-accept";
 
 function fmtDuration(s: number | null | undefined) {
   if (s == null || isNaN(s)) return "--:--";
@@ -94,11 +95,11 @@ function TrackRow({
 
   return (
     <div
-      className={`grid grid-cols-[24px_40px_1fr_28px_80px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-3 px-3 sm:px-4 py-2.5 group rounded-md ${
+      className={`grid grid-cols-[40px_minmax(0,1fr)_64px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-2.5 sm:gap-3 px-2.5 sm:px-4 py-2.5 group rounded-md ${
         isPlaying ? "bg-primary/10" : "hover:bg-accent/40"
       } transition-colors`}
     >
-      <button onClick={onPlay} className="text-xs tabular-nums text-muted-foreground relative w-6 flex items-center justify-center">
+      <button onClick={onPlay} className="hidden sm:flex text-xs tabular-nums text-muted-foreground relative w-6 items-center justify-center">
         <span className={`transition-opacity ${isPlaying ? "opacity-0" : "group-hover:opacity-0"}`}>{index + 1}</span>
         <span className={`absolute inset-0 flex items-center justify-center transition-opacity ${isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
           {isPlaying ? (
@@ -140,7 +141,7 @@ function TrackRow({
           {isAnalyzing && <span className="text-[10px] text-primary animate-pulse">Analyzing…</span>}
         </div>
       </div>
-      <div className="flex items-center justify-center" title={`Uploaded by ${track.uploaderName || "Unknown"}`}>
+      <div className="hidden sm:flex items-center justify-center" title={`Uploaded by ${track.uploaderName || "Unknown"}`}>
         <UploaderAvatar name={track.uploaderName} avatarUrl={track.uploaderAvatarUrl} />
       </div>
       {/* Actions */}
@@ -149,7 +150,7 @@ function TrackRow({
           <>
             <button
               onClick={startEdit}
-              className="w-7 h-7 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
+              className="w-7 h-7 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
               title="Rename"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -158,7 +159,7 @@ function TrackRow({
             </button>
             <button
               onClick={onDelete}
-              className="w-7 h-7 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-destructive transition-all"
+              className="w-7 h-7 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-destructive transition-all"
               title="Delete"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
@@ -321,7 +322,9 @@ export function TeamLibrary() {
         </div>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-2 text-sm bg-primary text-primary-foreground px-3 sm:px-4 py-2 rounded-full hover:opacity-90 font-semibold transition-opacity"
+          className="flex items-center justify-center gap-2 text-sm bg-primary text-primary-foreground w-10 sm:w-auto h-10 sm:h-auto sm:px-4 sm:py-2 rounded-full hover:opacity-90 font-semibold transition-opacity"
+          title="Upload audio"
+          aria-label="Upload audio"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
@@ -332,7 +335,7 @@ export function TeamLibrary() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="audio/*"
+          accept={AUDIO_FILE_ACCEPT}
           multiple
           className="hidden"
           onChange={(e) => handleUpload(e.target.files)}
@@ -364,7 +367,7 @@ export function TeamLibrary() {
           {tracks && tracks.length > 0 ? (
             <>
               {/* Column headers */}
-              <div className="grid grid-cols-[24px_40px_1fr_28px_80px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-3 px-3 sm:px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 mb-2">
+              <div className="hidden sm:grid sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-3 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50 mb-2">
                 <span>#</span>
                 <span></span>
                 <span>Title</span>
@@ -401,7 +404,7 @@ export function TeamLibrary() {
                 onClick={() => fileInputRef.current?.click()}
                 className="text-sm bg-primary text-primary-foreground px-5 py-2 rounded-full hover:opacity-90 font-semibold transition-opacity"
               >
-                Upload audio
+                Upload
               </button>
             </div>
           ) : (

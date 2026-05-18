@@ -405,13 +405,13 @@ export function TeamSettings() {
               <p className="text-xs text-muted-foreground">
                 Anyone with this link can join {team.name} as a member.
               </p>
-              <div className="flex gap-2 items-center">
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 <div className="flex-1 min-w-0 bg-background border border-border rounded-lg px-3 py-2">
                   <p className="text-xs text-muted-foreground font-mono truncate">{inviteUrl}</p>
                 </div>
                 <button
                   onClick={handleCopyInvite}
-                  className={`flex-shrink-0 flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-lg border transition-colors ${
+                  className={`w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-1.5 text-xs font-medium px-4 py-2 rounded-lg border transition-colors ${
                     copiedInvite
                       ? "bg-primary/10 border-primary text-primary"
                       : "border-border text-foreground hover:bg-muted"
@@ -425,7 +425,8 @@ export function TeamSettings() {
                   ) : (
                     <>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                      Copy link
+                      <span className="sm:hidden">Copy</span>
+                      <span className="hidden sm:inline">Copy link</span>
                     </>
                   )}
                 </button>
@@ -449,19 +450,19 @@ export function TeamSettings() {
               <p className="text-xs text-muted-foreground">
                 Send a direct team invitation to a collaborator.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="email"
                   value={inviteEmail}
                   onChange={(e) => { setInviteEmail(e.target.value); setInviteError(""); }}
                   onKeyDown={(e) => e.key === "Enter" && handleInvite()}
                   placeholder="name@example.com"
-                  className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+                  className="w-full sm:flex-1 min-w-0 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
                 />
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full sm:w-auto bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
@@ -469,7 +470,7 @@ export function TeamSettings() {
                 <button
                   onClick={handleInvite}
                   disabled={!inviteEmail.trim() || addMember.isPending}
-                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-40 transition-opacity whitespace-nowrap"
+                  className="w-full sm:w-auto px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-40 transition-opacity whitespace-nowrap"
                 >
                   {addMember.isPending ? "Sending..." : "Send invite"}
                 </button>
@@ -483,31 +484,31 @@ export function TeamSettings() {
         {currentRole === "owner" && (
           <section>
             <h2 className="text-sm font-semibold text-destructive mb-3">Danger zone</h2>
-            <div className="bg-card border border-destructive/30 rounded-lg p-4 flex items-center justify-between">
-              <div>
+            <div className="bg-card border border-destructive/30 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-sm text-foreground font-medium">Delete team</p>
                 <p className="text-xs text-muted-foreground mt-0.5">This will permanently delete the team and all team projects.</p>
               </div>
               {!showDeleteConfirm ? (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="px-3 py-1.5 text-xs font-medium border border-destructive/50 text-destructive rounded-lg hover:bg-destructive/10 transition-colors"
+                  className="w-full sm:w-auto px-3 py-1.5 text-xs font-medium border border-destructive/50 text-destructive rounded-lg hover:bg-destructive/10 transition-colors"
                 >
                   Delete
                 </button>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Are you sure?</span>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <span className="text-xs text-muted-foreground text-center sm:text-left">Are you sure?</span>
                   <button
                     onClick={handleDelete}
                     disabled={deleteTeam.isPending}
-                    className="px-3 py-1.5 text-xs font-medium bg-destructive text-white rounded-lg hover:opacity-90 disabled:opacity-40"
+                    className="w-full sm:w-auto px-3 py-1.5 text-xs font-medium bg-destructive text-white rounded-lg hover:opacity-90 disabled:opacity-40"
                   >
                     {deleteTeam.isPending ? "Deleting..." : "Yes, delete"}
                   </button>
                   <button
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg"
+                    className="w-full sm:w-auto px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg"
                   >
                     Cancel
                   </button>

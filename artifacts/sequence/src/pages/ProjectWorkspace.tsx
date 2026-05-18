@@ -62,6 +62,7 @@ import { uploadFileToStorage } from "@/lib/storage-upload";
 import { reportError } from "@/lib/error-reporting";
 import { UserAvatar } from "@/components/UserAvatar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { AUDIO_FILE_ACCEPT } from "@/lib/file-accept";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -149,12 +150,12 @@ function SortableTrackRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 px-4 py-2.5 group cursor-default rounded-md ${isPlaying ? "bg-primary/10" : "hover:bg-accent/50"} transition-colors`}
+      className={`flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2.5 group cursor-default rounded-md ${isPlaying ? "bg-primary/10" : "hover:bg-accent/50"} transition-colors`}
     >
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-manipulation"
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-manipulation flex-shrink-0"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M20 9H4v2h16V9zm-16 6h16v-2H4v2z"/>
@@ -181,7 +182,7 @@ function SortableTrackRow({
           )}
         </span>
       </button>
-      <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
+      <div className="hidden sm:block w-8 h-8 rounded overflow-hidden flex-shrink-0">
         <ProjectCover coverImageUrl={coverImageUrl} size={32} />
       </div>
       <div className="flex-1 min-w-0">
@@ -206,7 +207,7 @@ function SortableTrackRow({
         <span className="text-xs text-muted-foreground tabular-nums">{formatDuration(track.durationSeconds)}</span>
         <button
           onClick={onRemove}
-          className="w-6 h-6 opacity-0 group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
+          className="w-7 h-7 sm:w-6 sm:h-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 13H5v-2h14v2z"/>
@@ -327,13 +328,13 @@ function LibraryTrackRow({
         )}
         {isAnalyzing && <p className="text-[10px] text-primary animate-pulse mt-0.5">Analyzing…</p>}
       </div>
-      <div className="flex-shrink-0" title={`Uploaded by ${uploaderName || "Unknown"}`}>
+      <div className="hidden sm:block flex-shrink-0" title={`Uploaded by ${uploaderName || "Unknown"}`}>
         <UploaderAvatar name={uploaderName} avatarUrl={uploaderAvatarUrl} size={20} />
       </div>
       <div className="flex items-center justify-end gap-0.5 flex-shrink-0">
         <button
           onClick={startEdit}
-          className="w-7 h-7 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
+          className="w-7 h-7 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
           title="Rename track"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -918,7 +919,7 @@ export function ProjectWorkspace() {
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border flex-shrink-0">
+      <div className="flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-2.5 border-b border-border flex-shrink-0">
         <button onClick={() => navigate("/dashboard")} className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
@@ -930,30 +931,34 @@ export function ProjectWorkspace() {
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="truncate max-w-xs text-sm font-semibold text-foreground">{project?.title}</p>
+          <p className="truncate text-sm font-semibold text-foreground">{project?.title}</p>
           {project?.description && (
-            <p className="text-xs text-muted-foreground truncate">{project.description}</p>
+            <p className="hidden sm:block text-xs text-muted-foreground truncate">{project.description}</p>
           )}
         </div>
 
         <button
           onClick={() => setShowEditDetails(true)}
-          className="flex items-center gap-1.5 text-xs border border-border rounded-full px-3 py-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors flex-shrink-0"
+          className="flex items-center justify-center sm:gap-1.5 text-xs border border-border rounded-full w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors flex-shrink-0"
+          title="Edit details"
+          aria-label="Edit details"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
           </svg>
-          Edit details
+          <span className="hidden sm:inline">Edit details</span>
         </button>
 
         <button
           onClick={() => setShowShareModal(true)}
-          className="flex items-center gap-1.5 text-xs border border-border rounded-full px-3 py-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors flex-shrink-0"
+          className="flex items-center justify-center sm:gap-1.5 text-xs border border-border rounded-full w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors flex-shrink-0"
+          title="Share"
+          aria-label="Share"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
           </svg>
-          Share
+          <span className="hidden sm:inline">Share</span>
         </button>
       </div>
 
@@ -1042,7 +1047,7 @@ export function ProjectWorkspace() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="audio/*"
+              accept={AUDIO_FILE_ACCEPT}
               multiple
               className="hidden"
               onChange={(e) => handleUpload(e.target.files)}
@@ -1098,7 +1103,7 @@ export function ProjectWorkspace() {
                   onClick={() => fileInputRef.current?.click()}
                   className="text-xs text-primary hover:underline"
                 >
-                  Upload audio files
+                  Upload
                 </button>
               </div>
             )}
@@ -1339,7 +1344,7 @@ export function ProjectWorkspace() {
               <div className="flex flex-col items-center justify-center h-full text-center px-4">
                 <p className="text-sm text-muted-foreground mb-4">No sequences yet</p>
                 <button onClick={handleCreateSequence} disabled={creatingSequence} className="text-sm text-primary hover:underline disabled:opacity-50">
-                  {creatingSequence ? "Creating sequence..." : "Create a sequence"}
+                  {creatingSequence ? "Creating..." : "Create"}
                 </button>
               </div>
             ) : isSeqLoading ? (
@@ -1382,7 +1387,7 @@ export function ProjectWorkspace() {
                 <p className="text-sm font-medium text-foreground mb-1">Sequence is empty</p>
                 <p className="text-xs text-muted-foreground">
                   {tracks && tracks.length > 0
-                    ? "Click the + button next to any track in the library to add it here"
+                    ? "Tap + beside a track in the library to add it here"
                     : "Upload tracks to the library first, then add them here"}
                 </p>
               </div>

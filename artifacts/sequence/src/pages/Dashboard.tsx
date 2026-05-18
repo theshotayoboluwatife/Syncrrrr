@@ -185,7 +185,7 @@ function ProjectCard({ project, onClick, index }: { project: ProjectSummary; onC
       </div>
       {/* Text */}
       <div className="px-1">
-        <p className="text-sm font-semibold text-foreground truncate group-hover:text-white transition-colors leading-tight">
+        <p className="text-sm font-semibold text-foreground line-clamp-2 sm:truncate sm:line-clamp-none group-hover:text-white transition-colors leading-tight min-h-[2.25rem] sm:min-h-0">
           {project.title}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">
@@ -363,19 +363,42 @@ export function Dashboard() {
         {/* Spacer so children stack above the bg layer */}
         <div className="relative flex-1 flex flex-col overflow-hidden">
         {/* Mobile header */}
-        <div className="flex sm:hidden items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+        <div className="flex sm:hidden items-center justify-between gap-3 px-4 py-3 border-b border-border flex-shrink-0">
           <div className="flex items-center">
             <Logo size={22} />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => navigate(currentTeam ? `/teams/${currentTeam.id}/library` : "/library")}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/8 text-foreground hover:bg-white/12 border border-border/60 transition-colors"
+              title={currentTeam ? "Team library" : "Personal library"}
+              aria-label={currentTeam ? "Team library" : "Personal library"}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+              </svg>
+            </button>
+            {currentTeam && (
+              <button
+                onClick={() => navigate(`/teams/${currentTeam.id}/settings`)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-white/8 text-foreground hover:bg-white/12 border border-border/60 transition-colors"
+                title="Team settings"
+                aria-label="Team settings"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                </svg>
+              </button>
+            )}
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-full font-medium"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground font-medium"
+              title="New project"
+              aria-label="New project"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
-              New
             </button>
             <button
               onClick={() => navigate("/account")}
@@ -384,43 +407,6 @@ export function Dashboard() {
             >
               <UserAvatar avatarUrl={avatarUrl} name={displayName} seed={user?.id} size={32} />
             </button>
-          </div>
-        </div>
-
-        {/* Mobile quick actions */}
-        <div className="flex sm:hidden px-4 py-2 border-b border-border flex-shrink-0">
-          <div className="flex gap-2 w-full overflow-x-auto scrollbar-none">
-            <button
-              onClick={() => navigate("/library")}
-              className="flex items-center justify-center gap-2 text-xs bg-white/8 text-foreground hover:bg-white/12 px-3 py-2 rounded-full font-medium transition-colors border border-border/60 whitespace-nowrap"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-              </svg>
-              Personal library
-            </button>
-            {currentTeam && (
-              <>
-                <button
-                  onClick={() => navigate(`/teams/${currentTeam.id}/library`)}
-                  className="flex items-center justify-center gap-2 text-xs bg-white/8 text-foreground hover:bg-white/12 px-3 py-2 rounded-full font-medium transition-colors border border-border/60 whitespace-nowrap"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                  </svg>
-                  Team library
-                </button>
-                <button
-                  onClick={() => navigate(`/teams/${currentTeam.id}/settings`)}
-                  className="flex items-center justify-center gap-2 text-xs bg-white/8 text-foreground hover:bg-white/12 px-3 py-2 rounded-full font-medium transition-colors border border-border/60 whitespace-nowrap"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-                  </svg>
-                  Settings
-                </button>
-              </>
-            )}
           </div>
         </div>
 
