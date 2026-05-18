@@ -1,10 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   useListProjects, useCreateProject, getListProjectsQueryKey,
   useListTeams, useCreateTeam, getListTeamsQueryKey,
+  useCreateMyTrack,
+  useCreateTeamTrack,
+  useUpdateMyTrack,
+  useUpdateTeamTrack,
+  useRequestUploadUrl,
+  getListMyTracksQueryKey,
+  getListTeamTracksQueryKey,
   type ProjectSummary,
   type TeamSummary,
 } from "@workspace/api-client-react";
@@ -14,6 +21,10 @@ import { SignOutConfirmDialog } from "@/components/SignOutConfirmDialog";
 import { UserAvatar } from "@/components/UserAvatar";
 import { ProjectCover } from "@/lib/svg-generator";
 import { getAuthAvatarUrl, getAuthDisplayName } from "@/lib/auth-user";
+import { analyzeAudioFile, extractCoverArt } from "@/lib/audio-analyzer";
+import { AUDIO_FILE_ACCEPT, splitAudioFiles } from "@/lib/file-accept";
+import { uploadFileToStorage } from "@/lib/storage-upload";
+import { toast } from "@/hooks/use-toast";
 
 const WORKSPACE_KEY = "syncr_workspace";
 
@@ -213,11 +224,18 @@ export function Dashboard() {
   const { data: projects, isLoading } = useListProjects();
   const { data: teams, isLoading: teamsLoading } = useListTeams();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const requestUploadUrl = useRequestUploadUrl();
+  const createMyTrack = useCreateMyTrack();
+  const createTeamTrack = useCreateTeamTrack();
+  const updateMyTrack = useUpdateMyTrack();
+  const updateTeamTrack = useUpdateTeamTrack();
   const [showCreate, setShowCreate] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showMobileCreateMenu, setShowMobileCreateMenu] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [quickUpload, setQuickUpload] = useState<{ label: string; progress: number } | null>(null);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const teamFromUrl = params.get("team");
@@ -229,6 +247,7 @@ export function Dashboard() {
   }, [selectedWorkspaceId]);
 
   const currentTeam = teams?.find((t) => t.id === selectedWorkspaceId) ?? null;
+  const canUploadToCurrentWorkspace = !currentTeam || currentTeam.role === "owner" || currentTeam.role === "admin";
 
   const filteredProjects = projects?.filter((p) =>
     selectedWorkspaceId === "personal" ? p.teamId == null : p.teamId === selectedWorkspaceId
@@ -242,6 +261,116 @@ export function Dashboard() {
     queryClient.invalidateQueries({ queryKey: getListTeamsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
     setSelectedWorkspaceId(team.id);
+  };
+
+  const openQuickUpload = () => {
+    setShowMobileCreateMenu(false);
+    fileInputRef.current?.click();
+  };
+
+  const handleQuickUpload = async (files: FileList | null) => {
+    if (!files) return;
+    const { accepted, rejected } = splitAudioFiles(Array.from(files));
+    if (rejected.length > 0) {
+      toast({
+        title: "Only audio tracks can be uploaded",
+        description: "Choose MP3, WAV, M4A, AAC, FLAC, OGG, AIFF, or AIF tracks.",
+      });
+    }
+    if (accepted.length === 0) return;
+
+    for (let i = 0; i < accepted.length; i++) {
+      const file = accepted[i];
+      const label = accepted.length > 1 ? `Uploading ${i + 1}/${accepted.length}` : "Uploading track";
+      setQuickUpload({ label, progress: 0 });
+      try {
+        const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
+          data: { name: file.name, size: file.size, contentType: file.type || "audio/mpeg" },
+        });
+        await uploadFileToStorage({
+          uploadURL,
+          file,
+          contentType: file.type || "audio/mpeg",
+          onProgress: (progress) => setQuickUpload({ label, progress }),
+        });
+
+        let coverObjectPath: string | null = null;
+        try {
+          const coverBlob = await extractCoverArt(file);
+          if (coverBlob) {
+            const ext = coverBlob.type === "image/png" ? "png" : "jpg";
+            const cover = await requestUploadUrl.mutateAsync({
+              data: {
+                name: file.name.replace(/\.[^.]+$/, "") + ".cover." + ext,
+                size: coverBlob.size,
+                contentType: coverBlob.type,
+              },
+            });
+            await uploadFileToStorage({
+              uploadURL: cover.uploadURL,
+              file: coverBlob,
+              contentType: coverBlob.type,
+            });
+            coverObjectPath = `/api/storage${cover.objectPath}`;
+          }
+        } catch (err) {
+          console.warn("Cover art upload failed:", err);
+        }
+
+        const title = file.name.replace(/\.[^.]+$/, "");
+        if (currentTeam) {
+          const { id: trackId } = await createTeamTrack.mutateAsync({
+            teamId: currentTeam.id,
+            data: { title, fileUrl: objectPath, coverImageUrl: coverObjectPath, analyzed: false },
+          });
+          queryClient.invalidateQueries({ queryKey: getListTeamTracksQueryKey(currentTeam.id) });
+          try {
+            const { bpm, camelotKey, durationSeconds } = await analyzeAudioFile(file);
+            await updateTeamTrack.mutateAsync({
+              teamId: currentTeam.id,
+              trackId,
+              data: {
+                bpm: bpm ?? undefined,
+                camelotKey: camelotKey ?? undefined,
+                durationSeconds: durationSeconds ?? undefined,
+                analyzed: true,
+              },
+            });
+            queryClient.invalidateQueries({ queryKey: getListTeamTracksQueryKey(currentTeam.id) });
+          } catch (err) {
+            console.warn("Track analysis failed:", err);
+          }
+        } else {
+          const { id: trackId } = await createMyTrack.mutateAsync({
+            data: { title, fileUrl: objectPath, coverImageUrl: coverObjectPath, analyzed: false },
+          });
+          queryClient.invalidateQueries({ queryKey: getListMyTracksQueryKey() });
+          try {
+            const { bpm, camelotKey, durationSeconds } = await analyzeAudioFile(file);
+            await updateMyTrack.mutateAsync({
+              trackId,
+              data: {
+                bpm: bpm ?? undefined,
+                camelotKey: camelotKey ?? undefined,
+                durationSeconds: durationSeconds ?? undefined,
+                analyzed: true,
+              },
+            });
+            queryClient.invalidateQueries({ queryKey: getListMyTracksQueryKey() });
+          } catch (err) {
+            console.warn("Track analysis failed:", err);
+          }
+        }
+      } catch (err) {
+        console.error("Quick upload failed:", err);
+        toast({
+          title: "Upload failed",
+          description: "Try again in a moment.",
+        });
+      }
+    }
+    setQuickUpload(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSignOut = async () => {
@@ -450,6 +579,19 @@ export function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3">
+            {canUploadToCurrentWorkspace && (
+              <button
+                onClick={openQuickUpload}
+                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary border border-primary/30 hover:border-primary/60 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-full transition-all font-medium"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 17.5h9.2a4.3 4.3 0 0 0 .5-8.57A6 6 0 0 0 5.34 7.3 4.9 4.9 0 0 0 7 17.5z" />
+                  <path d="M12 17V10" />
+                  <path d="m8.9 13.1 3.1-3.1 3.1 3.1" />
+                </svg>
+                Upload track
+              </button>
+            )}
             {!currentTeam && (
               <button
                 onClick={() => navigate(`/library`)}
@@ -568,18 +710,13 @@ export function Dashboard() {
                   className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-foreground hover:bg-white/8 transition-colors"
                 >
                   <span className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4.5 12h3l1.8-4.5 4.2 9 2.1-4.5h3.9" />
-                      <path d="M12 5v14" />
-                      <path d="M5 12h14" />
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 5h14v14H5z" />
+                      <path d="M12 8v8" />
+                      <path d="M8 12h8" />
                     </svg>
                   </span>
-                  <span className="min-w-0">
-                    <span className="block font-semibold">New project</span>
-                    <span className="block text-xs text-muted-foreground truncate">
-                      {currentTeam ? currentTeam.name : "Personal workspace"}
-                    </span>
-                  </span>
+                  <span className="font-semibold">New project</span>
                 </button>
                 <div className="h-px bg-border" />
                 <button
@@ -594,11 +731,26 @@ export function Dashboard() {
                       <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
                     </svg>
                   </span>
-                  <span className="min-w-0">
-                    <span className="block font-semibold">New team</span>
-                    <span className="block text-xs text-muted-foreground truncate">Collaborate with others</span>
-                  </span>
+                  <span className="font-semibold">New team</span>
                 </button>
+                {canUploadToCurrentWorkspace && (
+                  <>
+                    <div className="h-px bg-border" />
+                    <button
+                      onClick={openQuickUpload}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-foreground hover:bg-white/8 transition-colors"
+                    >
+                      <span className="w-9 h-9 rounded-full bg-primary/15 text-primary border border-primary/30 flex items-center justify-center flex-shrink-0">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M7 17.5h9.2a4.3 4.3 0 0 0 .5-8.57A6 6 0 0 0 5.34 7.3 4.9 4.9 0 0 0 7 17.5z" />
+                          <path d="M12 17V10" />
+                          <path d="m8.9 13.1 3.1-3.1 3.1 3.1" />
+                        </svg>
+                      </span>
+                      <span className="font-semibold">Upload track</span>
+                    </button>
+                  </>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -635,6 +787,25 @@ export function Dashboard() {
             </motion.svg>
           </button>
         </div>
+        {quickUpload && (
+          <div className="fixed right-4 bottom-40 sm:bottom-6 z-40 w-56 rounded-xl border border-border bg-card/95 p-3 shadow-xl shadow-black/30 backdrop-blur">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <span className="text-xs font-medium text-foreground">{quickUpload.label}</span>
+              <span className="text-[11px] tabular-nums text-muted-foreground">{Math.round(quickUpload.progress)}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${quickUpload.progress}%` }} />
+            </div>
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={AUDIO_FILE_ACCEPT}
+          multiple
+          className="hidden"
+          onChange={(e) => handleQuickUpload(e.target.files)}
+        />
       </div>
 
       <AnimatePresence>

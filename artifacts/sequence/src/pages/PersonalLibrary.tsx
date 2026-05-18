@@ -197,8 +197,8 @@ export function PersonalLibrary() {
     const { accepted: list, rejected } = splitAudioFiles(Array.from(files));
     if (rejected.length > 0) {
       toast({
-        title: "Only audio files can be uploaded",
-        description: "Choose MP3, WAV, M4A, AAC, FLAC, OGG, AIFF, or AIF files.",
+        title: "Only audio tracks can be uploaded",
+        description: "Choose MP3, WAV, M4A, AAC, FLAC, OGG, AIFF, or AIF tracks.",
       });
     }
     const total = list.length;
@@ -315,15 +315,15 @@ export function PersonalLibrary() {
         <button
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center justify-center gap-2 text-sm w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full bg-primary/15 sm:bg-primary text-primary sm:text-primary-foreground border border-primary/30 sm:border-transparent hover:bg-primary/20 sm:hover:opacity-90 font-semibold transition-all"
-          title="Upload audio"
-          aria-label="Upload audio"
+          title="Upload track"
+          aria-label="Upload track"
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <path d="M7 17.5h9.2a4.3 4.3 0 0 0 .5-8.57A6 6 0 0 0 5.34 7.3 4.9 4.9 0 0 0 7 17.5z" />
             <path d="M12 17V10" />
             <path d="m8.9 13.1 3.1-3.1 3.1 3.1" />
           </svg>
-          <span className="hidden sm:inline">Upload audio</span>
+          <span className="hidden sm:inline">Upload track</span>
         </button>
         <input
           ref={fileInputRef}
@@ -391,7 +391,7 @@ export function PersonalLibrary() {
                 </svg>
               </div>
               <p className="text-sm font-medium text-foreground mb-1">Your personal library is empty</p>
-              <p className="text-xs text-muted-foreground mb-4">Upload audio files to keep your personal collection in one place.</p>
+              <p className="text-xs text-muted-foreground mb-4">Upload tracks to build your personal library.</p>
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="text-sm bg-primary text-primary-foreground px-5 py-2 rounded-full hover:opacity-90 font-semibold transition-opacity"

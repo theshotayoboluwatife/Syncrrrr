@@ -615,8 +615,8 @@ export function ProjectWorkspace() {
     const { accepted: list, rejected } = splitAudioFiles(Array.from(files));
     if (rejected.length > 0) {
       toast({
-        title: "Only audio files can be uploaded",
-        description: "Choose MP3, WAV, M4A, AAC, FLAC, OGG, AIFF, or AIF files.",
+        title: "Only audio tracks can be uploaded",
+        description: "Choose MP3, WAV, M4A, AAC, FLAC, OGG, AIFF, or AIF tracks.",
       });
     }
     const total = list.length;
