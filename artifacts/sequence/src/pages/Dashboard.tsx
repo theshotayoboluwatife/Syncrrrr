@@ -233,7 +233,11 @@ function ProjectCard({ project, onClick, index }: { project: ProjectSummary; onC
 export function Dashboard() {
   const [, navigate] = useLocation();
   const { user, signOut } = useAuth();
-  const { data: projects, isLoading } = useListProjects();
+  const { data: projects, isLoading } = useListProjects({
+    query: {
+      refetchOnMount: "always",
+    },
+  });
   const { data: teams, isLoading: teamsLoading } = useListTeams();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);

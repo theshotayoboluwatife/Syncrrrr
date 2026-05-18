@@ -599,6 +599,7 @@ export function ProjectWorkspace() {
       queryClient.invalidateQueries({ queryKey: getGetSequenceQueryKey(projectId, selectedSeqId) });
     }
     queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
+    queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
   }, [queryClient, projectId, teamId, selectedSeqId]);
 
   const updateProjectCaches = useCallback((updated: any) => {
@@ -606,6 +607,25 @@ export function ProjectWorkspace() {
     queryClient.setQueryData(getListProjectsQueryKey(), (old: any) =>
       Array.isArray(old)
         ? old.map((item) => (item.id === projectId ? { ...item, ...updated } : item))
+        : old,
+    );
+  }, [queryClient, projectId]);
+
+  const updateDashboardProjectCounts = useCallback((delta: { trackCount?: number; sequenceCount?: number }) => {
+    queryClient.setQueryData(getListProjectsQueryKey(), (old: any) =>
+      Array.isArray(old)
+        ? old.map((item) => {
+            if (item.id !== projectId) return item;
+            return {
+              ...item,
+              ...(delta.trackCount
+                ? { trackCount: Math.max(0, (item.trackCount ?? 0) + delta.trackCount) }
+                : {}),
+              ...(delta.sequenceCount
+                ? { sequenceCount: Math.max(0, (item.sequenceCount ?? 0) + delta.sequenceCount) }
+                : {}),
+            };
+          })
         : old,
     );
   }, [queryClient, projectId]);
@@ -672,6 +692,7 @@ export function ProjectWorkspace() {
           projectId,
           data: { title: trackName, fileUrl: objectPath, coverImageUrl: coverObjectPath, analyzed: false },
         });
+        updateDashboardProjectCounts({ trackCount: 1 });
 
         invalidate();
 
@@ -712,6 +733,7 @@ export function ProjectWorkspace() {
         );
       }
       setSelectedSeqId(seq.id);
+      updateDashboardProjectCounts({ sequenceCount: 1 });
       invalidate();
     } catch (error) {
       reportError(error, { area: "sequences", action: "create sequence" });
@@ -724,6 +746,7 @@ export function ProjectWorkspace() {
     if (!selectedSeqId) return;
     const seq = await duplicateSequence.mutateAsync({ projectId, sequenceId: selectedSeqId });
     setSelectedSeqId(seq.id);
+    updateDashboardProjectCounts({ sequenceCount: 1 });
     invalidate();
   };
 
@@ -739,6 +762,7 @@ export function ProjectWorkspace() {
     const remaining = sequences.filter(s => s.id !== sequenceToDelete.id);
     setSelectedSeqId(remaining[0]?.id || null);
     setSequenceToDelete(null);
+    updateDashboardProjectCounts({ sequenceCount: -1 });
     invalidate();
   };
 
@@ -913,6 +937,7 @@ export function ProjectWorkspace() {
     if (!libraryTrackToDelete) return;
     await deleteTrack.mutateAsync({ projectId, trackId: libraryTrackToDelete.id });
     setLibraryTrackToDelete(null);
+    updateDashboardProjectCounts({ trackCount: -1 });
     invalidate();
   };
 
@@ -1770,13 +1795,16 @@ export function ProjectWorkspace() {
                   onClick={async () => {
                     setPickerAdding(true);
                     try {
+                      let addedCount = 0;
                       for (const trackId of Array.from(pickerSelection)) {
                         try {
                           await addMyTrackToProject.mutateAsync({ projectId, trackId });
+                          addedCount += 1;
                         } catch (e) {
                           console.error("Failed to add track", trackId, e);
                         }
                       }
+                      if (addedCount > 0) updateDashboardProjectCounts({ trackCount: addedCount });
                       invalidate();
                       setShowMyPicker(false);
                     } finally {
@@ -1909,13 +1937,16 @@ export function ProjectWorkspace() {
                   onClick={async () => {
                     setPickerAdding(true);
                     try {
+                      let addedCount = 0;
                       for (const trackId of Array.from(pickerSelection)) {
                         try {
                           await addTeamTrackToProject.mutateAsync({ projectId, trackId });
+                          addedCount += 1;
                         } catch (e) {
                           console.error("Failed to add track", trackId, e);
                         }
                       }
+                      if (addedCount > 0) updateDashboardProjectCounts({ trackCount: addedCount });
                       invalidate();
                       setShowTeamPicker(false);
                     } finally {
