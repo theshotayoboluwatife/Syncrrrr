@@ -150,33 +150,33 @@ export function Profile() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-lg mx-auto px-4 sm:px-6 py-8 space-y-6">
-          <div className="flex items-center gap-4">
-            <UserAvatar avatarUrl={currentAvatarUrl} name={currentUsername} seed={user?.id} size={64} />
-            <div className="min-w-0">
-              <p className="font-semibold text-foreground truncate">{currentUsername}</p>
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
-            </div>
-          </div>
-
-          <div className="border border-border rounded-xl p-4 space-y-4 bg-card/50">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <UserAvatar avatarUrl={currentAvatarUrl} name={username || currentUsername} seed={user?.id} size={72} />
+        <div className="max-w-lg mx-auto px-4 sm:px-6 py-8">
+          <div className="border border-border rounded-xl p-5 space-y-5 bg-card/50">
+            <div className="flex items-start gap-4">
+              <div className="relative flex-shrink-0">
+                <UserAvatar avatarUrl={currentAvatarUrl} name={username || currentUsername} seed={user?.id} size={80} />
                 {isUploadingAvatar && (
                   <div className="absolute inset-0 rounded-full bg-black/55 flex items-center justify-center">
                     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
               </div>
-              <div className="space-y-2 min-w-0">
+
+              <div className="min-w-0 flex-1 space-y-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{currentUsername}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                </div>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploadingAvatar || isSavingProfile}
-                  className="text-xs border border-border hover:border-foreground/30 px-3 py-2 rounded-full text-foreground transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-2 text-xs border border-border hover:border-foreground/30 px-3 py-2 rounded-full text-foreground transition-colors disabled:opacity-50"
                 >
-                  Change image
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/>
+                  </svg>
+                  {isUploadingAvatar ? "Uploading..." : "Change image"}
                 </button>
                 <input
                   ref={fileInputRef}
@@ -192,14 +192,24 @@ export function Profile() {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Username</label>
-              <input
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                autoComplete="username"
-                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Username</label>
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  autoComplete="username"
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+                <input
+                  value={user?.email ?? ""}
+                  readOnly
+                  className="w-full bg-background/60 border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground focus:outline-none"
+                />
+              </div>
             </div>
 
             {profileError && <p className="text-xs text-destructive">{profileError}</p>}
