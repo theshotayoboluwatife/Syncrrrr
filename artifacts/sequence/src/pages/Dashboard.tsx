@@ -371,12 +371,16 @@ export function Dashboard() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => navigate(currentTeam ? `/teams/${currentTeam.id}/library` : "/library")}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/8 text-foreground hover:bg-white/12 border border-border/60 transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/12 text-primary hover:bg-primary/20 border border-primary/30 transition-colors"
               title={currentTeam ? "Team library" : "Personal library"}
               aria-label={currentTeam ? "Team library" : "Personal library"}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 7.5h11.5a2.5 2.5 0 0 1 0 5H8.5a2.5 2.5 0 0 0 0 5H19" />
+                <path d="M5 12.5h4" />
+                <path d="M15 17.5h4" />
+                <path d="M18.5 6.5v2" />
+                <path d="M18.5 16.5v2" />
               </svg>
             </button>
             {currentTeam && (
@@ -564,8 +568,10 @@ export function Dashboard() {
                   className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-foreground hover:bg-white/8 transition-colors"
                 >
                   <span className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4.5 12h3l1.8-4.5 4.2 9 2.1-4.5h3.9" />
+                      <path d="M12 5v14" />
+                      <path d="M5 12h14" />
                     </svg>
                   </span>
                   <span className="min-w-0">
@@ -598,20 +604,35 @@ export function Dashboard() {
           </AnimatePresence>
           <button
             onClick={() => setShowMobileCreateMenu((open) => !open)}
-            className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-black/50 flex items-center justify-center active:scale-95 transition-transform"
+            className="w-14 h-14 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.22),transparent_32%),linear-gradient(135deg,hsl(var(--primary)),#16a34a)] text-primary-foreground shadow-2xl shadow-black/50 ring-1 ring-primary/40 flex items-center justify-center active:scale-95 transition-transform"
             title="Create"
             aria-label={showMobileCreateMenu ? "Close create menu" : "Create project or team"}
             aria-expanded={showMobileCreateMenu}
           >
             <motion.svg
-              width="22"
-              height="22"
+              width="24"
+              height="24"
               viewBox="0 0 24 24"
-              fill="currentColor"
-              animate={{ rotate: showMobileCreateMenu ? 45 : 0 }}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.9"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              animate={{ rotate: showMobileCreateMenu ? 90 : 0 }}
               transition={{ duration: 0.18 }}
             >
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              {showMobileCreateMenu ? (
+                <>
+                  <path d="M7 7l10 10" />
+                  <path d="M17 7 7 17" />
+                </>
+              ) : (
+                <>
+                  <path d="M4.5 12h3l1.8-4.5 4.2 9 2.1-4.5h3.9" />
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
+                </>
+              )}
             </motion.svg>
           </button>
         </div>

@@ -322,15 +322,16 @@ export function TeamLibrary() {
         </div>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center justify-center gap-2 text-sm bg-primary text-primary-foreground w-10 sm:w-auto h-10 sm:h-auto sm:px-4 sm:py-2 rounded-full hover:opacity-90 font-semibold transition-opacity"
+          className="flex items-center justify-center gap-2 text-sm w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full bg-primary/15 sm:bg-primary text-primary sm:text-primary-foreground border border-primary/30 sm:border-transparent hover:bg-primary/20 sm:hover:opacity-90 font-semibold transition-all"
           title="Upload audio"
           aria-label="Upload audio"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 17.5h9.2a4.3 4.3 0 0 0 .5-8.57A6 6 0 0 0 5.34 7.3 4.9 4.9 0 0 0 7 17.5z" />
+            <path d="M12 17V10" />
+            <path d="m8.9 13.1 3.1-3.1 3.1 3.1" />
           </svg>
           <span className="hidden sm:inline">Upload audio</span>
-          <span className="sm:hidden">Upload</span>
         </button>
         <input
           ref={fileInputRef}
