@@ -76,9 +76,11 @@ export function SharedProjectWelcomeModal({ shareToken, teamName, teamImageUrl, 
             </p>
 
             {/* Project card */}
-            <div className="bg-[#242424] rounded-xl px-4 py-3 mb-6 text-left">
-              <p className="text-[10px] uppercase tracking-wider text-[#a7a7a7] mb-1">Project</p>
-              <p className="text-sm font-medium text-white truncate">{projectTitle}</p>
+            <div className="bg-[#242424] rounded-xl px-4 py-3.5 mb-6 text-left min-h-[60px] flex flex-col justify-center gap-1">
+              <p className="text-[10px] uppercase tracking-wider text-[#a7a7a7]">Project</p>
+              <p className="text-sm font-medium text-white break-words leading-snug">
+                {projectTitle}
+              </p>
             </div>
 
             <button
