@@ -265,7 +265,7 @@ export function SharedProject() {
 
           <div className="flex flex-col gap-3 sm:pb-2 min-w-0 w-full">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Album</p>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight break-words hyphens-auto">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white leading-tight break-words hyphens-auto">
               {project.title}
             </h1>
             {project.description && (
