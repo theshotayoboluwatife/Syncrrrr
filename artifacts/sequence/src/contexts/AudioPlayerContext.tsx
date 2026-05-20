@@ -367,7 +367,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [startRaf]);
 
   const next = useCallback(() => {
-    startQueueTransition(1, true);
+    // Manual skips can come from iOS media controls while the page is backgrounded,
+    // where requestAnimationFrame-driven fades may be throttled. Switch directly
+    // so the outgoing track always stops before the next one starts.
+    startQueueTransition(1, false);
   }, [startQueueTransition]);
 
   const previous = useCallback(() => {

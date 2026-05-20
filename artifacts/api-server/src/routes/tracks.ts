@@ -536,7 +536,7 @@ router.delete("/teams/:teamId/tracks/:trackId", requireAuth, async (req, res): P
   res.sendStatus(204);
 });
 
-// ── Personal library (tracks owned by user, not in any team or project) ─────
+// ── Personal library (tracks owned by user, outside the team library) ────────
 
 router.get("/users/me/tracks", requireAuth, async (req, res): Promise<void> => {
   const supabaseId = getSupabaseId(req);
@@ -549,7 +549,6 @@ router.get("/users/me/tracks", requireAuth, async (req, res): Promise<void> => {
     .where(and(
       eq(tracksTable.uploadedBy, user.id),
       isNull(tracksTable.teamId),
-      isNull(tracksTable.projectId),
     ))
     .orderBy(tracksTable.createdAt);
 
@@ -609,7 +608,6 @@ router.patch("/users/me/tracks/:trackId", requireAuth, async (req, res): Promise
       eq(tracksTable.id, params.data.trackId),
       eq(tracksTable.uploadedBy, user.id),
       isNull(tracksTable.teamId),
-      isNull(tracksTable.projectId),
     ))
     .returning();
 
@@ -632,7 +630,6 @@ router.delete("/users/me/tracks/:trackId", requireAuth, async (req, res): Promis
       eq(tracksTable.id, params.data.trackId),
       eq(tracksTable.uploadedBy, user.id),
       isNull(tracksTable.teamId),
-      isNull(tracksTable.projectId),
     ));
 
   res.sendStatus(204);

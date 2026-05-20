@@ -417,7 +417,11 @@ export function PersonalLibrary() {
       {trackToDelete && (
         <ConfirmDialog
           title="Delete track?"
-          description={`"${trackToDelete.title}" will be removed from your personal library.`}
+          description={
+            trackToDelete.projectId
+              ? `"${trackToDelete.title}" will be removed from your personal library and any project using it.`
+              : `"${trackToDelete.title}" will be removed from your personal library.`
+          }
           confirmLabel="Delete track"
           isLoading={deleteTrack.isPending}
           onCancel={() => setTrackToDelete(null)}
