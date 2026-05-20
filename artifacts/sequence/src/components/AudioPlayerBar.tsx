@@ -216,6 +216,7 @@ function DesktopFullscreenPlayer({
   const sourceSubtitle = currentTrack.sourceSubtitle && currentTrack.sourceSubtitle !== sourceTitle
     ? currentTrack.sourceSubtitle
     : null;
+  const sourceLine = [sourceSubtitle, sourceTitle].filter(Boolean).join(" • ");
 
   const closeFullscreen = () => {
     if (document.fullscreenElement && typeof document.exitFullscreen === "function") {
