@@ -199,7 +199,14 @@ function DesktopFullscreenPlayer({
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root || typeof root.requestFullscreen !== "function" || document.fullscreenElement) return;
+    if (
+      !root ||
+      !document.fullscreenEnabled ||
+      typeof root.requestFullscreen !== "function" ||
+      document.fullscreenElement
+    ) {
+      return;
+    }
     root.requestFullscreen().catch(() => {});
   }, []);
 
@@ -211,7 +218,7 @@ function DesktopFullscreenPlayer({
     : null;
 
   const closeFullscreen = () => {
-    if (document.fullscreenElement) {
+    if (document.fullscreenElement && typeof document.exitFullscreen === "function") {
       document.exitFullscreen().catch(() => {});
     }
     onClose();
