@@ -86,6 +86,23 @@ async function assertTeamAdmin(teamId: string, userId: string, res: any): Promis
   return true;
 }
 
+async function isTeamOwner(teamId: string, userId: string): Promise<boolean> {
+  const member = await getTeamMembership(teamId, userId);
+  return member?.role === "owner";
+}
+
+async function canDeleteProjectTrack(projectId: string, userId: string): Promise<boolean> {
+  const [project] = await db
+    .select({ createdBy: projectsTable.createdBy, teamId: projectsTable.teamId })
+    .from(projectsTable)
+    .where(eq(projectsTable.id, projectId));
+
+  if (!project) return false;
+  if (project.createdBy === userId) return true;
+  if (project.teamId && await isTeamOwner(project.teamId, userId)) return true;
+  return false;
+}
+
 type EnrichedTrack = typeof tracksTable.$inferSelect & {
   uploaderName?: string | null;
   uploaderAvatarUrl?: string | null;
@@ -260,6 +277,12 @@ router.delete("/projects/:projectId/tracks/:trackId", requireAuth, async (req, r
 
   const hasAccess = await assertProjectAccess(params.data.projectId, user.id, res);
   if (!hasAccess) return;
+
+  const canDelete = await canDeleteProjectTrack(params.data.projectId, user.id);
+  if (!canDelete) {
+    res.status(403).json({ error: "Only the project creator or team owner can delete tracks" });
+    return;
+  }
 
   // If the track is also in a team library, unlink it from this project rather than fully deleting it.
   const [existing] = await db
@@ -486,8 +509,25 @@ router.delete("/teams/:teamId/tracks/:trackId", requireAuth, async (req, res): P
   const params = DeleteTeamTrackParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const ok = await assertTeamAdmin(params.data.teamId, user.id, res);
-  if (!ok) return;
+  const [existing] = await db
+    .select({ id: tracksTable.id, projectId: tracksTable.projectId })
+    .from(tracksTable)
+    .where(and(eq(tracksTable.id, params.data.trackId), eq(tracksTable.teamId, params.data.teamId)));
+
+  if (!existing) {
+    res.sendStatus(204);
+    return;
+  }
+
+  const allowedByTeam = await isTeamOwner(params.data.teamId, user.id);
+  const allowedByProject = existing.projectId
+    ? await canDeleteProjectTrack(existing.projectId, user.id)
+    : false;
+
+  if (!allowedByTeam && !allowedByProject) {
+    res.status(403).json({ error: "Only the project creator or team owner can delete tracks" });
+    return;
+  }
 
   await db
     .delete(tracksTable)

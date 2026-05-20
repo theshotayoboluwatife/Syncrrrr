@@ -64,7 +64,7 @@ function TrackRow({
   index,
   isPlaying,
   isAnalyzing,
-  canManage,
+  canRename,
   onPlay,
   onRename,
   onDelete,
@@ -73,7 +73,7 @@ function TrackRow({
   index: number;
   isPlaying: boolean;
   isAnalyzing: boolean;
-  canManage: boolean;
+  canRename: boolean;
   onPlay: () => void;
   onRename: (title: string) => void;
   onDelete: () => void;
@@ -83,7 +83,7 @@ function TrackRow({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const startEdit = () => {
-    if (!canManage) return;
+    if (!canRename) return;
     setVal(track.title);
     setEditing(true);
     setTimeout(() => inputRef.current?.select(), 0);
@@ -103,7 +103,7 @@ function TrackRow({
   return (
     <div
       onClick={handleRowClick}
-      className={`grid grid-cols-[40px_minmax(0,1fr)_64px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-2.5 sm:gap-3 px-2.5 sm:px-4 py-2.5 group rounded-md ${
+      className={`grid grid-cols-[40px_minmax(0,1fr)_44px] sm:grid-cols-[32px_44px_1fr_28px_100px] items-center gap-2.5 sm:gap-3 px-2.5 sm:px-4 py-2.5 group rounded-md ${
         isPlaying ? "bg-primary/10" : "hover:bg-accent/40"
       } transition-colors cursor-pointer`}
     >
@@ -152,33 +152,32 @@ function TrackRow({
         <UploaderAvatar name={track.uploaderName} avatarUrl={track.uploaderAvatarUrl} />
       </div>
       {/* Actions */}
-      <div className="flex items-center justify-end gap-1">
-        {canManage ? (
-          <>
-            <button
-              onClick={startEdit}
-              className="w-7 h-7 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
-              title="Rename"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-              </svg>
-            </button>
-            <button
-              onClick={onDelete}
-              className="w-7 h-7 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-destructive transition-all"
-              title="Delete"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-              </svg>
-            </button>
-          </>
-        ) : (
-          <span className="text-[10px] text-muted-foreground/40 hidden sm:inline" title="Only team admins can edit or delete">
-            View only
-          </span>
+      <div className="flex items-center justify-center sm:justify-end gap-1">
+        {canRename && (
+          <button
+            onClick={startEdit}
+            className="hidden sm:flex w-7 h-7 rounded-full opacity-0 group-hover:opacity-100 items-center justify-center text-muted-foreground hover:text-foreground transition-all"
+            title="Rename"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+            </svg>
+          </button>
         )}
+        <button
+          onClick={onDelete}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground/80 hover:text-[#ff6b6b] hover:bg-white/5 transition-all"
+          title="Delete"
+          aria-label={`Delete ${track.title}`}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 7h16" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+            <path d="M6 7l1 14h10l1-14" />
+            <path d="M9 7V4h6v3" />
+          </svg>
+        </button>
       </div>
     </div>
   );
@@ -193,8 +192,7 @@ export function TeamLibrary() {
   const { data: team } = useGetTeam(teamId);
   const { data: tracks } = useListTeamTracks(teamId);
 
-  const canManage = team?.role === "owner" || team?.role === "admin";
-
+  const canRename = team?.role === "owner" || team?.role === "admin";
   const createTrack = useCreateTeamTrack();
   const updateTrack = useUpdateTeamTrack();
   const deleteTrack = useDeleteTeamTrack();
@@ -331,7 +329,7 @@ export function TeamLibrary() {
             </h1>
             <p className="text-xs text-muted-foreground">
               {tracks ? `${tracks.length} track${tracks.length !== 1 ? "s" : ""}` : "Loading…"}
-              {!canManage && team && " · view only"}
+              {!canRename && team && " · view only"}
             </p>
           </div>
         </div>
@@ -397,7 +395,7 @@ export function TeamLibrary() {
                   index={i}
                   isPlaying={currentTrack?.id === track.id && isPlaying}
                   isAnalyzing={analyzingIds.has(track.id)}
-                  canManage={canManage}
+                  canRename={canRename}
                   onPlay={() => playTrack(track)}
                   onRename={async (title) => {
                     await updateTrack.mutateAsync({ teamId, trackId: track.id, data: { title } });

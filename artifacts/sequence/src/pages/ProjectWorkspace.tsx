@@ -335,7 +335,7 @@ function LibraryTrackRow({
       <div className="flex items-center justify-end gap-0.5 flex-shrink-0">
         <button
           onClick={startEdit}
-          className="w-7 h-7 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
+          className="hidden sm:flex w-7 h-7 rounded-full opacity-0 group-hover:opacity-100 items-center justify-center text-muted-foreground hover:text-foreground transition-all"
           title="Rename track"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -366,11 +366,16 @@ function LibraryTrackRow({
         )}
         <button
           onClick={onDelete}
-          className="w-7 h-7 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-muted-foreground hover:text-destructive transition-all"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground/80 hover:text-[#ff6b6b] hover:bg-white/5 transition-all"
           title="Delete track"
+          aria-label={`Delete ${track.title}`}
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 7h16" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+            <path d="M6 7l1 14h10l1-14" />
+            <path d="M9 7V4h6v3" />
           </svg>
         </button>
       </div>
