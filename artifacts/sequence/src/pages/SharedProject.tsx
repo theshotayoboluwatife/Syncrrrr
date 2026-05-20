@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
 import { motion } from "framer-motion";
+import { Pause, Play } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { SequenceTrack, SharedProject as SharedProjectData } from "@workspace/api-client-react";
 import { Logo } from "@/components/Logo";
@@ -9,6 +10,7 @@ import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { audioCacheService } from "@/lib/audio-cache";
 import { SharedProjectWelcomeModal } from "@/components/SharedProjectWelcomeModal";
 import { reportError } from "@/lib/error-reporting";
+import { cn } from "@/lib/utils";
 
 function formatDuration(s: number | null | undefined) {
   if (s == null || isNaN(s)) return null;
@@ -43,6 +45,40 @@ function EqualizerBars({ isPlaying }: { isPlaying: boolean }) {
         </>
       )}
     </svg>
+  );
+}
+
+function PlayPauseGlyph({ isPlaying, size = 20 }: { isPlaying: boolean; size?: number }) {
+  return isPlaying ? (
+    <Pause size={size} strokeWidth={3} fill="currentColor" className="drop-shadow-[0_1px_0_rgba(0,0,0,0.18)]" />
+  ) : (
+    <Play size={size} strokeWidth={3} fill="currentColor" className="ml-0.5 drop-shadow-[0_1px_0_rgba(0,0,0,0.18)]" />
+  );
+}
+
+function PrimaryPlayButton({
+  isPlaying,
+  className,
+  iconSize = 22,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { isPlaying: boolean; iconSize?: number }) {
+  return (
+    <button
+      {...props}
+      className={cn(
+        "group relative grid place-items-center rounded-full text-black transition-all duration-200",
+        "bg-[radial-gradient(circle_at_35%_20%,#ffffff_0%,#f4fff7_28%,#1ed760_100%)]",
+        "shadow-[0_10px_35px_rgba(29,185,84,0.24),inset_0_1px_0_rgba(255,255,255,0.78)]",
+        "hover:scale-[1.04] hover:shadow-[0_14px_42px_rgba(29,185,84,0.34),inset_0_1px_0_rgba(255,255,255,0.86)] active:scale-95",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+        "before:absolute before:inset-[2px] before:rounded-full before:bg-white/10 before:opacity-80",
+        className,
+      )}
+    >
+      <span className="relative z-10">
+        <PlayPauseGlyph isPlaying={isPlaying} size={iconSize} />
+      </span>
+    </button>
   );
 }
 
@@ -150,7 +186,7 @@ export function SharedProject() {
 
   // When a track finishes via the audio element, its data is cached for next time.
   // We also pre-cache any track we start playing.
-  const playSharedTrack = (track: SequenceTrack, queue: SequenceTrack[]) => {
+  const playSharedTrack = (track: SequenceTrack, queue: SequenceTrack[], options?: { restartIfCurrent?: boolean }) => {
     const albumCover = project?.coverImageUrl ?? null;
     const toPlayer = (t: SequenceTrack) => ({
       id: t.trackId,
@@ -169,7 +205,7 @@ export function SharedProject() {
     // the same sequence currently in the player. If the sequence differs (even
     // if the track ID matches because it appears in both), always start the new
     // sequence queue from scratch.
-    if (currentTrack?.id === trackId && playingSeqId === activeSeqId) {
+    if (currentTrack?.id === trackId && playingSeqId === activeSeqId && !options?.restartIfCurrent) {
       isPlaying ? pause() : resume();
     } else {
       // Tell the player bar which sequence this belongs to
@@ -206,7 +242,7 @@ export function SharedProject() {
   const totalMins = Math.floor(totalDuration / 60);
 
   return (
-    <div className="min-h-screen bg-[#121212] text-foreground flex flex-col pb-24">
+    <div className="min-h-screen bg-[#121212] text-foreground flex flex-col pb-[calc(6rem+env(safe-area-inset-bottom))]">
       {/* Hero */}
       <div className="relative overflow-hidden">
         {project.coverImageUrl && (
@@ -298,8 +334,8 @@ export function SharedProject() {
           const seqIsInPlayer = playingSeqId === activeSeqId;
           const seqIsPlaying = seqIsInPlayer && isPlaying;
           return (
-            <div className="flex items-center gap-4 mb-5 mt-2">
-              <button
+            <div className="flex items-center gap-4 mb-5 mt-2 px-1">
+              <PrimaryPlayButton
                 onClick={() => {
                   if (seqIsInPlayer) {
                     isPlaying ? pause() : resume();
@@ -307,19 +343,12 @@ export function SharedProject() {
                     playSharedTrack(activeSeq.tracks[0], activeSeq.tracks);
                   }
                 }}
-                className="w-14 h-14 rounded-full bg-primary flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-primary/30 flex-shrink-0"
+                className="w-14 h-14 flex-shrink-0"
+                iconSize={22}
+                isPlaying={seqIsPlaying}
                 title={seqIsPlaying ? "Pause" : "Play"}
-              >
-                {seqIsPlaying ? (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="black">
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                  </svg>
-                ) : (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="black">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                )}
-              </button>
+                aria-label={seqIsPlaying ? "Pause sequence" : "Play sequence"}
+              />
             </div>
           );
         })()}
@@ -385,26 +414,26 @@ export function SharedProject() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
           >
-            {activeSeq.tracks.length > 0 && (
-              <div className="flex items-center gap-3 px-3 sm:px-4 pb-2 border-b border-white/10 mb-1">
-                <span className="w-8 text-center text-xs text-muted-foreground flex-shrink-0">#</span>
-                <span className="flex-1 text-xs text-muted-foreground">Title</span>
-                {cacheProgress && cacheProgress.downloaded < cacheProgress.total && (
-                  <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
-                    <span className="w-2.5 h-2.5 rounded-full border border-muted-foreground/40 border-t-transparent animate-spin inline-block" />
-                    {cacheProgress.downloaded}/{cacheProgress.total}
-                  </span>
-                )}
-                {cacheProgress && cacheProgress.downloaded >= cacheProgress.total && (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-primary">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                  </svg>
-                )}
-                <span className="hidden sm:block w-20 text-right text-xs text-muted-foreground flex-shrink-0">Duration</span>
-              </div>
-            )}
+            <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.035] p-1.5 shadow-[0_18px_60px_rgba(0,0,0,0.22)] sm:rounded-xl sm:bg-transparent sm:border-0 sm:p-0 sm:shadow-none">
+              {activeSeq.tracks.length > 0 && (
+                <div className="hidden sm:flex items-center gap-3 px-4 pb-2 border-b border-white/10 mb-1">
+                  <span className="w-8 text-center text-xs text-muted-foreground flex-shrink-0">#</span>
+                  <span className="flex-1 text-xs text-muted-foreground">Title</span>
+                  {cacheProgress && cacheProgress.downloaded < cacheProgress.total && (
+                    <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                      <span className="w-2.5 h-2.5 rounded-full border border-muted-foreground/40 border-t-transparent animate-spin inline-block" />
+                      {cacheProgress.downloaded}/{cacheProgress.total}
+                    </span>
+                  )}
+                  {cacheProgress && cacheProgress.downloaded >= cacheProgress.total && (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-primary">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                  )}
+                  <span className="w-20 text-right text-xs text-muted-foreground flex-shrink-0">Duration</span>
+                </div>
+              )}
 
-            <div>
               {activeSeq.tracks.map((track, i) => {
                 const id = track.trackId;
                 const isActive = currentTrack?.id === id;
@@ -412,39 +441,34 @@ export function SharedProject() {
                 return (
                   <button
                     key={id}
-                    onClick={() => playSharedTrack(track, activeSeq.tracks)}
-                    className={`w-full flex items-center gap-3 px-3 sm:px-4 py-3 rounded-md group text-left transition-colors ${
-                      isActive ? "bg-white/10" : "hover:bg-white/5"
+                    onClick={() => playSharedTrack(track, activeSeq.tracks, { restartIfCurrent: true })}
+                    className={`w-full flex items-center gap-3 px-3 py-3.5 sm:px-4 sm:py-3 rounded-2xl sm:rounded-md group text-left transition-colors ${
+                      isActive ? "bg-white/[0.11]" : "hover:bg-white/[0.07]"
                     }`}
                   >
                     {/* Number / play icon */}
-                    <div className="w-8 flex items-center justify-center flex-shrink-0 relative">
-                      <span className={`text-sm tabular-nums transition-opacity ${isActive ? (isPlaying ? "opacity-0" : "text-primary") : "text-muted-foreground group-hover:opacity-0"}`}>
+                    <div className="w-9 h-9 grid place-items-center flex-shrink-0 relative rounded-full bg-white/[0.06] text-white/70 group-hover:text-black group-hover:bg-primary transition-colors">
+                      <span className={`text-sm tabular-nums transition-opacity ${isActive ? "opacity-0" : "group-hover:opacity-0"}`}>
                         {i + 1}
                       </span>
-                      <span className={`absolute inset-0 flex items-center justify-center transition-opacity ${(isActive && isPlaying) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-                        {isActive && isPlaying ? (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-primary">
-                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                          </svg>
-                        ) : (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-white">
-                            <path d="M8 5v14l11-7z"/>
-                          </svg>
-                        )}
+                      <span className={`absolute inset-0 flex items-center justify-center transition-opacity ${isActive ? "opacity-100 text-primary group-hover:text-black" : "opacity-0 group-hover:opacity-100"}`}>
+                        <PlayPauseGlyph isPlaying={isActive && isPlaying} size={15} />
                       </span>
                     </div>
 
                     {/* Cover art thumbnail — prefer per-track embedded art, fall back to album cover */}
-                    <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
+                    <div className="w-11 h-11 sm:w-10 sm:h-10 rounded-lg sm:rounded overflow-hidden flex-shrink-0 shadow-sm">
                       <ProjectCover coverImageUrl={track.coverImageUrl ?? project.coverImageUrl} size={40} />
                     </div>
 
                     {/* Title */}
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-white"}`}>
+                      <p className={`text-[15px] sm:text-sm font-medium truncate ${isActive ? "text-primary" : "text-white"}`}>
                         {track.title}
                       </p>
+                      {dur && (
+                        <p className="sm:hidden text-xs text-muted-foreground tabular-nums mt-0.5">{dur}</p>
+                      )}
                     </div>
 
                     {/* Duration */}
