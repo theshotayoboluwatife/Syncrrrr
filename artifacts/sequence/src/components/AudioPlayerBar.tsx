@@ -93,13 +93,13 @@ function NowPlayingView({
     : null;
 
   return (
-    <div className="fixed inset-0 z-[80] bg-[#050505] text-white overflow-y-auto">
+    <div className="fixed inset-0 z-[80] h-[100dvh] bg-[#050505] text-white overflow-hidden">
       <div className="absolute inset-0 opacity-35 blur-3xl scale-110">
         <ProjectCover coverImageUrl={currentTrack.coverImageUrl} fill />
       </div>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_16%,rgba(29,185,84,0.22),transparent_34%),linear-gradient(180deg,rgba(5,5,5,0.1)_0%,#050505_62%)]" />
 
-      <div className="relative min-h-full flex flex-col px-5 py-5 sm:px-8 sm:py-7 max-w-xl mx-auto">
+      <div className="relative h-full min-h-0 flex flex-col px-5 py-4 sm:px-8 sm:py-6 max-w-xl mx-auto">
         <div className="flex items-center justify-between gap-4">
           <button
             onClick={onClose}
@@ -116,19 +116,19 @@ function NowPlayingView({
           <div className="w-10 h-10" />
         </div>
 
-        <div className="flex-1 flex flex-col justify-center py-8 sm:py-10">
-          <div className="relative mx-auto w-full max-w-[360px] aspect-square rounded-[22px] overflow-hidden shadow-[0_28px_90px_rgba(0,0,0,0.58)] ring-1 ring-white/10">
+        <div className="flex-1 min-h-0 flex flex-col justify-center py-4 sm:py-6">
+          <div className="relative mx-auto w-[min(74vw,300px)] sm:w-[min(52vh,340px)] aspect-square rounded-[20px] overflow-hidden shadow-[0_24px_74px_rgba(0,0,0,0.56)] ring-1 ring-white/10">
             <ProjectCover coverImageUrl={currentTrack.coverImageUrl} fill />
           </div>
 
-          <div className="mt-8 text-center px-1">
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight">{currentTrack.title}</h2>
-            <p className="mt-2 text-base text-white/68 truncate">
+          <div className="mt-5 sm:mt-6 text-center px-1">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight max-h-[2.35em] overflow-hidden">{currentTrack.title}</h2>
+            <p className="mt-1.5 text-sm sm:text-base text-white/68 truncate">
               {sourceSubtitle || sourceTitle}
             </p>
           </div>
 
-          <div className="mt-8">
+          <div className="mt-5 sm:mt-6">
             <input
               type="range"
               min={0}
@@ -144,30 +144,30 @@ function NowPlayingView({
             </div>
           </div>
 
-          <div className="mt-8 flex items-center justify-center gap-6">
+          <div className="mt-5 sm:mt-6 flex items-center justify-center gap-5 sm:gap-6">
             <PlayerIconButton
               onClick={previous}
-              className="h-14 w-14 bg-white/[0.06] ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+              className="h-12 w-12 sm:h-14 sm:w-14 bg-white/[0.06] ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
               title="Previous"
               aria-label="Previous track"
             >
-              <SkipBack size={28} strokeWidth={2.7} fill="currentColor" />
+              <SkipBack size={26} strokeWidth={2.7} fill="currentColor" />
             </PlayerIconButton>
             <PrimaryPlayButton
               onClick={isPlaying ? pause : resume}
-              className="h-[82px] w-[82px]"
+              className="h-[68px] w-[68px] sm:h-[76px] sm:w-[76px]"
               title={isPlaying ? "Pause" : "Play"}
               aria-label={isPlaying ? "Pause" : "Play"}
               isPlaying={isPlaying}
-              iconSize={34}
+              iconSize={30}
             />
             <PlayerIconButton
               onClick={next}
-              className="h-14 w-14 bg-white/[0.06] ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+              className="h-12 w-12 sm:h-14 sm:w-14 bg-white/[0.06] ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
               title="Next"
               aria-label="Next track"
             >
-              <SkipForward size={28} strokeWidth={2.7} fill="currentColor" />
+              <SkipForward size={26} strokeWidth={2.7} fill="currentColor" />
             </PlayerIconButton>
           </div>
         </div>
