@@ -294,9 +294,10 @@ export function TeamLibrary() {
 
   const playTrack = (track: Track) => {
     if (!tracks) return;
+    const sourceTitle = team?.name ? `${team.name} Library` : "Team Library";
     play(
-      { id: track.id, title: track.title, fileUrl: track.fileUrl, coverImageUrl: track.coverImageUrl, durationSeconds: track.durationSeconds, bpm: track.bpm, camelotKey: track.camelotKey },
-      tracks.map(t => ({ id: t.id, title: t.title, fileUrl: t.fileUrl, coverImageUrl: t.coverImageUrl, durationSeconds: t.durationSeconds, bpm: t.bpm, camelotKey: t.camelotKey })),
+      { id: track.id, title: track.title, fileUrl: track.fileUrl, coverImageUrl: track.coverImageUrl, sourceType: "team", sourceTitle, durationSeconds: track.durationSeconds, bpm: track.bpm, camelotKey: track.camelotKey },
+      tracks.map(t => ({ id: t.id, title: t.title, fileUrl: t.fileUrl, coverImageUrl: t.coverImageUrl, sourceType: "team" as const, sourceTitle, durationSeconds: t.durationSeconds, bpm: t.bpm, camelotKey: t.camelotKey })),
     );
   };
 

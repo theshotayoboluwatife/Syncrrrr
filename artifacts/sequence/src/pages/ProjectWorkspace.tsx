@@ -873,11 +873,15 @@ export function ProjectWorkspace() {
     sourceSeq?: { id: string; name: string } | null
   ) => {
     const coverImageUrl = project?.coverImageUrl ?? null;
+    const teamName = myTeams?.find(t => t.id === teamId)?.name ?? null;
     const toPlayerTrack = (t: Track | SequenceTrack) => ({
       id: "trackId" in t ? t.trackId : t.id,
       title: t.title,
       fileUrl: t.fileUrl,
       coverImageUrl,
+      sourceType: "project" as const,
+      sourceTitle: project?.title ?? "Project",
+      sourceSubtitle: sourceSeq?.name ?? teamName ?? null,
       durationSeconds: t.durationSeconds,
       bpm: t.bpm,
       camelotKey: t.camelotKey,

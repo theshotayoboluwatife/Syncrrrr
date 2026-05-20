@@ -204,9 +204,10 @@ input[type="range"]::-webkit-slider-runnable-track {
   border-radius: 2px;
   background: linear-gradient(
     to right,
-    #1DB954 var(--progress, 0%),
-    rgba(255,255,255,0.2) var(--progress, 0%)
+    #1ed760 var(--progress, 0%),
+    rgba(255,255,255,0.16) var(--progress, 0%)
   );
+  box-shadow: inset 0 1px 1px rgba(0,0,0,0.28);
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -214,38 +215,43 @@ input[type="range"]::-webkit-slider-thumb {
   height: 14px;
   border-radius: 50%;
   background: white;
+  border: 2px solid rgba(255,255,255,0.9);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.28), 0 0 0 1px rgba(29,185,84,0.2);
   margin-top: -5px; /* center on 4px track: -(14/2 - 4/2) = -5 */
-  transition: transform 0.15s, background 0.15s;
+  transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
 }
 input[type="range"]:hover::-webkit-slider-thumb,
 input[type="range"]:active::-webkit-slider-thumb {
-  transform: scale(1.25);
-  background: #1DB954;
+  transform: scale(1.18);
+  background: #1ed760;
+  box-shadow: 0 4px 16px rgba(29,185,84,0.34), 0 0 0 4px rgba(29,185,84,0.12);
 }
 
 /* Firefox */
 input[type="range"]::-moz-range-track {
   height: 4px;
   border-radius: 2px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.16);
 }
 input[type="range"]::-moz-range-progress {
   height: 4px;
   border-radius: 2px;
-  background: #1DB954;
+  background: #1ed760;
 }
 input[type="range"]::-moz-range-thumb {
-  border: none;
+  border: 2px solid rgba(255,255,255,0.9);
   width: 14px;
   height: 14px;
   border-radius: 50%;
   background: white;
-  transition: transform 0.15s, background 0.15s;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.28);
+  transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
 }
 input[type="range"]:hover::-moz-range-thumb,
 input[type="range"]:active::-moz-range-thumb {
-  transform: scale(1.25);
-  background: #1DB954;
+  transform: scale(1.18);
+  background: #1ed760;
+  box-shadow: 0 4px 16px rgba(29,185,84,0.34), 0 0 0 4px rgba(29,185,84,0.12);
 }
 
 /* Reliable 2-line clamp — React drops WebkitBoxOrient from inline styles */
@@ -266,11 +272,13 @@ input[type="range"]:active::-moz-range-thumb {
 .mobile-seek::-webkit-slider-runnable-track {
   height: 3px;
   border-radius: 0;
+  box-shadow: none;
 }
 .mobile-seek::-webkit-slider-thumb {
   width: 18px;
   height: 18px;
   margin-top: -7.5px; /* center on 3px track: -(18/2 - 3/2) = -7.5 */
+  opacity: 0;
 }
 .mobile-seek::-moz-range-track {
   height: 3px;
@@ -283,6 +291,7 @@ input[type="range"]:active::-moz-range-thumb {
 .mobile-seek::-moz-range-thumb {
   width: 18px;
   height: 18px;
+  opacity: 0;
 }
 
 /* Now-playing sound bar animation */

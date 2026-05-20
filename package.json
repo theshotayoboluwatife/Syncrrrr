@@ -4,6 +4,8 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "dev:api": "set -a; . ./.env; set +a; PORT=8080 node \"$npm_execpath\" --dir artifacts/api-server run dev",
+    "dev:web": "set -a; . ./.env; set +a; PORT=5173 node \"$npm_execpath\" --dir artifacts/sequence run dev",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"

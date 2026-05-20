@@ -1,11 +1,15 @@
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect } from "react";
 import { audioCacheService } from "@/lib/audio-cache";
+import { resolveCoverUrl } from "@/lib/image-cache";
 
 export interface PlayerTrack {
   id: string;
   title: string;
   fileUrl: string;
   coverImageUrl?: string | null;
+  sourceType?: "project" | "personal" | "team" | "shared";
+  sourceTitle?: string | null;
+  sourceSubtitle?: string | null;
   durationSeconds?: number | null;
   bpm?: number | null;
   camelotKey?: string | null;
@@ -48,6 +52,13 @@ function bgCache(fileUrl: string, onReady?: (blobUrl: string) => void) {
       }
     })
     .catch(() => {});
+}
+
+function absoluteArtworkUrl(url?: string | null) {
+  if (!url || typeof window === "undefined") return null;
+  const resolved = resolveCoverUrl(url);
+  if (resolved.startsWith("blob:") || /^https?:\/\//i.test(resolved)) return resolved;
+  return `${window.location.origin}${resolved.startsWith("/") ? resolved : `/${resolved}`}`;
 }
 
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
@@ -243,6 +254,37 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setPlayingSequenceId(info.sequenceId);
     setPlayingSequenceName(info.sequenceName);
   }, []);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !currentTrack) return;
+
+    const artworkUrl = absoluteArtworkUrl(currentTrack.coverImageUrl);
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentTrack.title,
+      artist: currentTrack.sourceTitle || playingSequenceName || "Syncr",
+      album: currentTrack.sourceSubtitle || currentTrack.sourceTitle || "Syncr",
+      artwork: artworkUrl
+        ? [
+            { src: artworkUrl, sizes: "96x96", type: "image/jpeg" },
+            { src: artworkUrl, sizes: "256x256", type: "image/jpeg" },
+            { src: artworkUrl, sizes: "512x512", type: "image/jpeg" },
+          ]
+        : undefined,
+    });
+
+    try {
+      navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+      navigator.mediaSession.setActionHandler("play", resume);
+      navigator.mediaSession.setActionHandler("pause", pause);
+      navigator.mediaSession.setActionHandler("previoustrack", previous);
+      navigator.mediaSession.setActionHandler("nexttrack", next);
+      navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (typeof details.seekTime === "number") seek(details.seekTime);
+      });
+    } catch {
+      // Media Session support differs across browsers and iOS versions.
+    }
+  }, [currentTrack, isPlaying, playingSequenceName, resume, pause, previous, next, seek]);
 
   return (
     <AudioPlayerContext.Provider value={{

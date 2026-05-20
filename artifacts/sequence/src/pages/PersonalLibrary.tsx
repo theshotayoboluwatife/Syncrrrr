@@ -282,8 +282,8 @@ export function PersonalLibrary() {
   const playTrack = (track: Track) => {
     if (!tracks) return;
     play(
-      { id: track.id, title: track.title, fileUrl: track.fileUrl, coverImageUrl: track.coverImageUrl, durationSeconds: track.durationSeconds, bpm: track.bpm, camelotKey: track.camelotKey },
-      tracks.map(t => ({ id: t.id, title: t.title, fileUrl: t.fileUrl, coverImageUrl: t.coverImageUrl, durationSeconds: t.durationSeconds, bpm: t.bpm, camelotKey: t.camelotKey })),
+      { id: track.id, title: track.title, fileUrl: track.fileUrl, coverImageUrl: track.coverImageUrl, sourceType: "personal", sourceTitle: "Personal Library", durationSeconds: track.durationSeconds, bpm: track.bpm, camelotKey: track.camelotKey },
+      tracks.map(t => ({ id: t.id, title: t.title, fileUrl: t.fileUrl, coverImageUrl: t.coverImageUrl, sourceType: "personal" as const, sourceTitle: "Personal Library", durationSeconds: t.durationSeconds, bpm: t.bpm, camelotKey: t.camelotKey })),
     );
   };
 
