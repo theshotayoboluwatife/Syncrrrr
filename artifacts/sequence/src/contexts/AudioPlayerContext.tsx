@@ -36,16 +36,6 @@ interface AudioPlayerContextValue {
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null);
-const CROSSFADE_SECONDS = 8;
-
-function equalPowerCrossfade(pct: number) {
-  const clamped = Math.min(1, Math.max(0, pct));
-  return {
-    outgoing: Math.cos(clamped * Math.PI / 2),
-    incoming: Math.sin(clamped * Math.PI / 2),
-  };
-}
-
 /**
  * Background-cache a track and call onReady(blobUrl) once it's stored.
  * Used to switch a streaming audio element to local playback once downloaded.
@@ -82,7 +72,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const rafRef = useRef<number>(0);
   const isSeekingRef = useRef(false);
   const volumeRef = useRef(0.8);
-  const transitionKeyRef = useRef<string | null>(null);
   const startQueueTransitionRef = useRef<(direction: 1 | -1, crossfade?: boolean) => void>(() => {});
 
   const [currentTrack, setCurrentTrack] = useState<PlayerTrack | null>(null);
@@ -114,23 +103,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const audio = audioRef.current;
       if (audio && !isSeekingRef.current) {
         setCurrentTime(audio.currentTime);
-        if (
-          !crossfadeRef.current &&
-          !audio.paused &&
-          Number.isFinite(audio.duration) &&
-          audio.duration > 0
-        ) {
-          const q = queueRef.current;
-          const ct = currentTrackRef.current;
-          const idx = q.findIndex(t => t.id === ct?.id);
-          const next = idx >= 0 ? q[idx + 1] : null;
-          const key = next ? `${ct?.id}:${next.id}` : null;
-          const remaining = audio.duration - audio.currentTime;
-          if (next && key && transitionKeyRef.current !== key && remaining <= CROSSFADE_SECONDS) {
-            transitionKeyRef.current = key;
-            startQueueTransitionRef.current(1, true);
-          }
-        }
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -152,7 +124,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (audio !== audioRef.current) return;
       stopRaf();
       setIsPlaying(false);
-      startQueueTransitionRef.current(1, false);
+      startQueueTransitionRef.current(1);
     };
     const onSeeking = () => {
       if (audio === audioRef.current) isSeekingRef.current = true;
@@ -224,82 +196,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (queueIndex + 1 < q.length) bgCache(q[queueIndex + 1].fileUrl);
   }, [playTrackOnAudio, stopCrossfade]);
 
-  const crossfadeToTrack = useCallback((track: PlayerTrack, queueIndex: number) => {
-    const outgoing = audioRef.current;
-    if (!outgoing || outgoing.paused) {
-      directSwitchToTrack(track, queueIndex);
-      return;
-    }
-
-    stopCrossfade();
-
-    const incoming = new Audio();
-    prepareAudioElement(incoming);
-    incoming.volume = 0;
-    incoming.src = audioCacheService.getPlaybackUrl(track.fileUrl);
-    incoming.load();
-
-    incoming.play().then(() => {
-      const totalMs = Math.max(
-        500,
-        Math.min(
-          CROSSFADE_SECONDS * 1000,
-          Number.isFinite(outgoing.duration)
-            ? Math.max(500, (outgoing.duration - outgoing.currentTime) * 1000)
-            : CROSSFADE_SECONDS * 1000,
-        ),
-      );
-      const startedAt = performance.now();
-
-      audioRef.current = incoming;
-      setCurrentTrack(track);
-      setCurrentTime(0);
-      setDuration(incoming.duration || track.durationSeconds || 0);
-      setIsPlaying(true);
-      startRaf();
-
-      const step = (now: number) => {
-        const pct = Math.min(1, (now - startedAt) / totalMs);
-        const gain = equalPowerCrossfade(pct);
-        const targetVolume = volumeRef.current;
-        outgoing.volume = Math.max(0, targetVolume * gain.outgoing);
-        incoming.volume = Math.min(targetVolume, targetVolume * gain.incoming);
-
-        if (pct < 1) {
-          const raf = requestAnimationFrame(step);
-          if (crossfadeRef.current) crossfadeRef.current.raf = raf;
-          return;
-        }
-
-        outgoing.pause();
-        outgoing.src = "";
-        incoming.volume = volumeRef.current;
-        crossfadeRef.current = null;
-      };
-
-      const raf = requestAnimationFrame(step);
-      crossfadeRef.current = { incoming, outgoing, raf };
-      bgCache(track.fileUrl);
-      const q = queueRef.current;
-      if (queueIndex + 1 < q.length) bgCache(q[queueIndex + 1].fileUrl);
-    }).catch(() => {
-      directSwitchToTrack(track, queueIndex);
-    });
-  }, [directSwitchToTrack, prepareAudioElement, startRaf, stopCrossfade]);
-
-  const startQueueTransition = useCallback((direction: 1 | -1, crossfade = true) => {
+  const startQueueTransition = useCallback((direction: 1 | -1) => {
     const q = queueRef.current;
     const ct = currentTrackRef.current;
     const idx = q.findIndex(t => t.id === ct?.id);
     const nextIndex = idx + direction;
     if (nextIndex < 0 || nextIndex >= q.length) return;
     const nextTrack = q[nextIndex];
-    if (crossfade && direction === 1) {
-      crossfadeToTrack(nextTrack, nextIndex);
-    } else {
-      directSwitchToTrack(nextTrack, nextIndex);
-    }
-  }, [crossfadeToTrack, directSwitchToTrack]);
+    directSwitchToTrack(nextTrack, nextIndex);
+  }, [directSwitchToTrack]);
 
   useEffect(() => {
     startQueueTransitionRef.current = startQueueTransition;
@@ -309,7 +214,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const audio = audioRef.current;
     if (!audio) return;
     stopCrossfade();
-    transitionKeyRef.current = null;
     if (newQueue) setQueueState(newQueue);
     setCurrentTrack(track);
     setCurrentTime(0);
@@ -370,7 +274,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // Manual skips can come from iOS media controls while the page is backgrounded,
     // where requestAnimationFrame-driven fades may be throttled. Switch directly
     // so the outgoing track always stops before the next one starts.
-    startQueueTransition(1, false);
+    startQueueTransition(1);
   }, [startQueueTransition]);
 
   const previous = useCallback(() => {
@@ -382,7 +286,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       audio.currentTime = 0;
       return;
     }
-    startQueueTransition(-1, false);
+    startQueueTransition(-1);
   }, [startQueueTransition]);
 
   const seek = useCallback((time: number) => {

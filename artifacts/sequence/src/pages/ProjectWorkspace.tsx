@@ -148,16 +148,38 @@ function SortableTrackRow({
     zIndex: isDragging ? 50 : undefined,
     position: isDragging ? ("relative" as const) : undefined,
   };
+  const pointerDownRef = React.useRef<{ x: number; y: number } | null>(null);
+  const shouldIgnoreRowActivation = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return true;
+    return !!target.closest("button,input,[data-drag-handle]");
+  };
+  const handleRowPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (shouldIgnoreRowActivation(event.target)) {
+      pointerDownRef.current = null;
+      return;
+    }
+    pointerDownRef.current = { x: event.clientX, y: event.clientY };
+  };
+  const handleRowPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = pointerDownRef.current;
+    pointerDownRef.current = null;
+    if (!start || shouldIgnoreRowActivation(event.target)) return;
+    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    if (moved > 8) return;
+    onActivate();
+  };
   const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button,input,[data-drag-handle]")) return;
-    onActivate();
+    event.preventDefault();
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
+      onPointerDown={handleRowPointerDown}
+      onPointerUp={handleRowPointerUp}
       onClick={handleRowClick}
       className={`flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2.5 group cursor-pointer rounded-md ${isPlaying ? "bg-primary/10" : "hover:bg-accent/50"} transition-colors`}
     >
