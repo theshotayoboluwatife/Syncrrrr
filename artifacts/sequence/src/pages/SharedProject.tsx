@@ -195,7 +195,7 @@ export function SharedProject() {
       coverImageUrl: t.coverImageUrl ?? albumCover,
       sourceType: "shared" as const,
       sourceTitle: project?.title ?? "Shared project",
-      sourceSubtitle: project?.teamName ?? activeSeq?.name ?? null,
+      sourceSubtitle: project?.teamName ?? null,
       durationSeconds: t.durationSeconds,
       bpm: t.bpm,
       camelotKey: t.camelotKey,

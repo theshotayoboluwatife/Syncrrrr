@@ -962,7 +962,7 @@ export function ProjectWorkspace() {
       coverImageUrl,
       sourceType: "project" as const,
       sourceTitle: project?.title ?? "Project",
-      sourceSubtitle: sourceSeq?.name ?? teamName ?? null,
+      sourceSubtitle: teamName ?? null,
       durationSeconds: t.durationSeconds,
       bpm: t.bpm,
       camelotKey: t.camelotKey,

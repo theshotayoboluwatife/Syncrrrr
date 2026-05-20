@@ -91,6 +91,7 @@ function NowPlayingView({
   const sourceSubtitle = currentTrack.sourceSubtitle && currentTrack.sourceSubtitle !== sourceTitle
     ? currentTrack.sourceSubtitle
     : null;
+  const sourceLine = [sourceSubtitle, sourceTitle].filter(Boolean).join(" • ");
 
   return (
     <div className="fixed inset-0 z-[80] h-[100dvh] bg-[#050505] text-white overflow-hidden">
@@ -234,8 +235,7 @@ function DesktopFullscreenPlayer({
               <ProjectCover coverImageUrl={currentTrack.coverImageUrl} size={40} />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/45">Syncr fullscreen</p>
-              <p className="text-sm font-semibold text-white/85 truncate">{sourceTitle}</p>
+              <p className="text-sm font-semibold text-white/85 truncate">{sourceLine}</p>
             </div>
           </div>
           <button
@@ -261,16 +261,13 @@ function DesktopFullscreenPlayer({
                 {currentTrack.title}
               </h1>
               <p className="mt-6 text-[clamp(1.1rem,1.8vw,1.7rem)] font-semibold text-white/70 truncate">
-                {sourceSubtitle || sourceTitle}
+                {sourceLine}
               </p>
-              {sourceSubtitle && (
-                <p className="mt-2 text-base text-white/42 truncate">{sourceTitle}</p>
-              )}
             </div>
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-5xl rounded-[28px] border border-white/10 bg-black/34 px-7 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+        <div className="mx-auto w-full max-w-5xl px-4 pb-1">
           <div className="flex items-center gap-4">
             <span className="w-12 text-right text-sm tabular-nums text-white/45">{formatTime(currentTime)}</span>
             <input
@@ -288,7 +285,7 @@ function DesktopFullscreenPlayer({
           <div className="mt-5 flex items-center justify-center gap-7">
             <PlayerIconButton
               onClick={previous}
-              className="h-14 w-14 bg-white/[0.065] ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+              className="h-14 w-14 bg-white/[0.045] shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
               title="Previous"
               aria-label="Previous track"
             >
@@ -304,7 +301,7 @@ function DesktopFullscreenPlayer({
             />
             <PlayerIconButton
               onClick={next}
-              className="h-14 w-14 bg-white/[0.065] ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+              className="h-14 w-14 bg-white/[0.045] shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
               title="Next"
               aria-label="Next track"
             >
