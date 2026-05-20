@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, Pause, Play, SkipBack, SkipForward, Volume2 } from "lucide-react";
+import { ChevronDown, Maximize2, Minimize2, Pause, Play, SkipBack, SkipForward, Volume2 } from "lucide-react";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { ProjectCover } from "@/lib/svg-generator";
 import { cn } from "@/lib/utils";
@@ -176,10 +176,152 @@ function NowPlayingView({
   );
 }
 
+function DesktopFullscreenPlayer({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
+  const {
+    currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
+    pause,
+    resume,
+    next,
+    previous,
+    seek,
+    playingSequenceName,
+  } = useAudioPlayer();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof root.requestFullscreen !== "function" || document.fullscreenElement) return;
+    root.requestFullscreen().catch(() => {});
+  }, []);
+
+  if (!currentTrack) return null;
+
+  const sourceTitle = currentTrack.sourceTitle || playingSequenceName || "Syncr";
+  const sourceSubtitle = currentTrack.sourceSubtitle && currentTrack.sourceSubtitle !== sourceTitle
+    ? currentTrack.sourceSubtitle
+    : null;
+
+  const closeFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    onClose();
+  };
+
+  return (
+    <div
+      ref={rootRef}
+      className="fixed inset-0 z-[90] hidden sm:flex h-screen w-screen overflow-hidden bg-[#030303] text-white"
+    >
+      <div className="absolute inset-0 scale-110 opacity-50 blur-3xl">
+        <ProjectCover coverImageUrl={currentTrack.coverImageUrl} fill />
+      </div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(29,185,84,0.22),transparent_30%),linear-gradient(180deg,rgba(3,3,3,0.08)_0%,rgba(3,3,3,0.68)_58%,#030303_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-[linear-gradient(180deg,transparent,#030303_80%)]" />
+
+      <div className="relative z-10 flex h-full w-full flex-col px-10 py-8">
+        <div className="flex items-center justify-between gap-6">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-10 w-10 rounded-xl bg-white/10 ring-1 ring-white/10 grid place-items-center">
+              <ProjectCover coverImageUrl={currentTrack.coverImageUrl} size={40} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/45">Syncr fullscreen</p>
+              <p className="text-sm font-semibold text-white/85 truncate">{sourceTitle}</p>
+            </div>
+          </div>
+          <button
+            onClick={closeFullscreen}
+            className="h-11 w-11 rounded-full bg-white/10 hover:bg-white/15 grid place-items-center text-white/75 hover:text-white transition-colors"
+            title="Exit fullscreen"
+            aria-label="Exit fullscreen"
+          >
+            <Minimize2 size={19} strokeWidth={2.4} />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 grid place-items-center py-8">
+          <div className="w-full max-w-6xl grid grid-cols-[minmax(280px,44vh)_minmax(360px,1fr)] items-center gap-[clamp(3rem,7vw,7rem)]">
+            <div className="relative aspect-square overflow-hidden rounded-[28px] shadow-[0_40px_120px_rgba(0,0,0,0.62)] ring-1 ring-white/12">
+              <ProjectCover coverImageUrl={currentTrack.coverImageUrl} fill />
+              <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-[28px]" />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary/80 mb-5">Now playing</p>
+              <h1 className="text-[clamp(3rem,6vw,6.8rem)] font-black leading-[0.95] tracking-normal text-white max-h-[2.95em] overflow-hidden">
+                {currentTrack.title}
+              </h1>
+              <p className="mt-6 text-[clamp(1.1rem,1.8vw,1.7rem)] font-semibold text-white/70 truncate">
+                {sourceSubtitle || sourceTitle}
+              </p>
+              {sourceSubtitle && (
+                <p className="mt-2 text-base text-white/42 truncate">{sourceTitle}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-5xl rounded-[28px] border border-white/10 bg-black/34 px-7 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+          <div className="flex items-center gap-4">
+            <span className="w-12 text-right text-sm tabular-nums text-white/45">{formatTime(currentTime)}</span>
+            <input
+              type="range"
+              min={0}
+              max={duration || 100}
+              value={currentTime}
+              onChange={(e) => seek(Number(e.target.value))}
+              className="flex-1"
+              style={{ "--progress": `${progressPct}%` } as React.CSSProperties}
+            />
+            <span className="w-12 text-sm tabular-nums text-white/45">{formatTime(duration)}</span>
+          </div>
+
+          <div className="mt-5 flex items-center justify-center gap-7">
+            <PlayerIconButton
+              onClick={previous}
+              className="h-14 w-14 bg-white/[0.065] ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+              title="Previous"
+              aria-label="Previous track"
+            >
+              <SkipBack size={26} strokeWidth={2.8} fill="currentColor" />
+            </PlayerIconButton>
+            <PrimaryPlayButton
+              onClick={isPlaying ? pause : resume}
+              className="h-20 w-20"
+              title={isPlaying ? "Pause" : "Play"}
+              aria-label={isPlaying ? "Pause" : "Play"}
+              isPlaying={isPlaying}
+              iconSize={32}
+            />
+            <PlayerIconButton
+              onClick={next}
+              className="h-14 w-14 bg-white/[0.065] ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+              title="Next"
+              aria-label="Next track"
+            >
+              <SkipForward size={26} strokeWidth={2.8} fill="currentColor" />
+            </PlayerIconButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AudioPlayerBar() {
   const { currentTrack, isPlaying, currentTime, duration, volume, pause, resume, next, previous, seek, setVolume, playingSequenceName } = useAudioPlayer();
   const rangeRef = useRef<HTMLInputElement>(null);
   const [showNowPlaying, setShowNowPlaying] = useState(false);
+  const [showDesktopFullscreen, setShowDesktopFullscreen] = useState(false);
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
   const sourceTitle = currentTrack?.sourceTitle || playingSequenceName || null;
 
@@ -217,6 +359,7 @@ export function AudioPlayerBar() {
   return (
     <>
       {showNowPlaying && <NowPlayingView onClose={() => setShowNowPlaying(false)} />}
+      {showDesktopFullscreen && <DesktopFullscreenPlayer onClose={() => setShowDesktopFullscreen(false)} />}
 
       {/* ── MOBILE PLAYER ── */}
       <div className="sm:hidden select-none bg-[#111] border-t border-white/10 shadow-[0_-18px_45px_rgba(0,0,0,0.45)]">
@@ -341,8 +484,8 @@ export function AudioPlayerBar() {
           </div>
         </div>
 
-        {/* Volume */}
-        <div className="w-32 flex-shrink-0 flex items-center gap-2">
+        {/* Volume + fullscreen */}
+        <div className="w-40 flex-shrink-0 flex items-center justify-end gap-2">
           <Volume2 size={16} strokeWidth={2.4} className="text-muted-foreground" />
           <input
             type="range"
@@ -354,6 +497,14 @@ export function AudioPlayerBar() {
             className="flex-1"
             style={{ "--progress": `${volume * 100}%` } as React.CSSProperties}
           />
+          <button
+            onClick={() => setShowDesktopFullscreen(true)}
+            className="h-8 w-8 rounded-full grid place-items-center text-white/55 hover:text-white hover:bg-white/[0.07] transition-colors"
+            title="Fullscreen"
+            aria-label="Open fullscreen player"
+          >
+            <Maximize2 size={16} strokeWidth={2.4} />
+          </button>
         </div>
       </div>
     </>
