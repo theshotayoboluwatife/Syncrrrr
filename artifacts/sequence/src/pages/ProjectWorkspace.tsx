@@ -146,16 +146,23 @@ function SortableTrackRow({
     zIndex: isDragging ? 50 : undefined,
     position: isDragging ? ("relative" as const) : undefined,
   };
+  const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button,input,[data-drag-handle]")) return;
+    onPlay();
+  };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2.5 group cursor-default rounded-md ${isPlaying ? "bg-primary/10" : "hover:bg-accent/50"} transition-colors`}
+      onClick={handleRowClick}
+      className={`flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2.5 group cursor-pointer rounded-md ${isPlaying ? "bg-primary/10" : "hover:bg-accent/50"} transition-colors`}
     >
       <div
         {...attributes}
         {...listeners}
+        data-drag-handle
         className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-manipulation flex-shrink-0"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -271,12 +278,19 @@ function LibraryTrackRow({
   React.useEffect(() => { setImgFailed(false); }, [cover]);
   const uploaderName = (track as Track & { uploaderName?: string | null }).uploaderName ?? null;
   const uploaderAvatarUrl = (track as Track & { uploaderAvatarUrl?: string | null }).uploaderAvatarUrl ?? null;
+  const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (isEditing) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button,input")) return;
+    onPlay();
+  };
 
   return (
     <div
+      onClick={handleRowClick}
       className={`flex items-center gap-2.5 px-2.5 py-2 group rounded-md ${
         isPlaying ? "bg-primary/10" : "hover:bg-accent/40"
-      } transition-colors`}
+      } transition-colors cursor-pointer`}
     >
       <button
         onClick={onPlay}
@@ -321,7 +335,6 @@ function LibraryTrackRow({
         ) : (
           <p
             className={`text-sm truncate ${isPlaying ? "text-primary font-medium" : "text-foreground"}`}
-            onDoubleClick={startEdit}
             title={track.title}
           >
             {track.title}
