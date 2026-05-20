@@ -263,17 +263,17 @@ export function SharedProject() {
             <ProjectCover coverImageUrl={project.coverImageUrl} fill size={224} />
           </div>
 
-          <div className="flex flex-col gap-2 sm:pb-2 min-w-0">
+          <div className="flex flex-col gap-3 sm:pb-2 min-w-0 w-full">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Album</p>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight break-words hyphens-auto">
               {project.title}
             </h1>
             {project.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{project.description}</p>
             )}
 
             {project.teamName && (
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
                 <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0">
                   {project.teamImageUrl ? (
                     <img src={project.teamImageUrl!} alt={project.teamName} className="w-full h-full object-cover" />
