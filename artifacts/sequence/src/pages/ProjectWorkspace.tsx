@@ -434,6 +434,7 @@ export function ProjectWorkspace() {
   const cacheBatchRef = React.useRef<AbortController | null>(null);
   const [editingSeqName, setEditingSeqName] = useState(false);
   const [seqNameInput, setSeqNameInput] = useState("");
+  const [renamingSeq, setRenamingSeq] = useState(false);
   const [linerNotesExpanded, setLinerNotesExpanded] = useState(false);
   const [editingLinerNotes, setEditingLinerNotes] = useState(false);
   const [linerNotesInput, setLinerNotesInput] = useState("");
@@ -814,9 +815,44 @@ export function ProjectWorkspace() {
   };
 
   const handleRenameSeq = async () => {
-    if (!selectedSeqId || !seqNameInput.trim()) { setEditingSeqName(false); return; }
-    await updateSequence.mutateAsync({ projectId, sequenceId: selectedSeqId, data: { name: seqNameInput.trim() } });
-    setEditingSeqName(false);
+    if (renamingSeq) return;
+    const sequenceId = selectedSeqId;
+    const name = seqNameInput.trim();
+    if (!sequenceId || !name) {
+      setEditingSeqName(false);
+      return;
+    }
+    const currentName = sequences?.find(s => s.id === sequenceId)?.name;
+    if (name === currentName) {
+      setEditingSeqName(false);
+      return;
+    }
+
+    setRenamingSeq(true);
+    try {
+      const updated = await updateSequence.mutateAsync({ projectId, sequenceId, data: { name } });
+      const nextName = updated.name ?? name;
+      queryClient.setQueryData(getListSequencesQueryKey(projectId), (old: any) =>
+        Array.isArray(old)
+          ? old.map((seq) => (seq.id === sequenceId ? { ...seq, name: nextName } : seq))
+          : old,
+      );
+      queryClient.setQueryData(getGetSequenceQueryKey(projectId, sequenceId), (old: any) =>
+        old ? { ...old, name: nextName } : old,
+      );
+      queryClient.invalidateQueries({ queryKey: getListSequencesQueryKey(projectId) });
+      queryClient.invalidateQueries({ queryKey: getGetSequenceQueryKey(projectId, sequenceId) });
+      setEditingSeqName(false);
+    } catch (error) {
+      reportError(error, { area: "sequences", action: "rename sequence" });
+      toast({
+        title: "Could not update sequence",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRenamingSeq(false);
+    }
   };
 
   const handleSaveLinerNotes = async () => {
@@ -1269,14 +1305,32 @@ export function ProjectWorkspace() {
             <div className="flex items-center justify-between px-5 py-2.5 border-b border-border/60 flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {editingSeqName ? (
-                  <input
-                    autoFocus
-                    value={seqNameInput}
-                    onChange={(e) => setSeqNameInput(e.target.value)}
-                    onBlur={handleRenameSeq}
-                    onKeyDown={(e) => e.key === "Enter" && handleRenameSeq()}
-                    className="text-sm font-semibold bg-transparent border-b border-primary outline-none text-foreground w-48"
-                  />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <input
+                      autoFocus
+                      value={seqNameInput}
+                      disabled={renamingSeq}
+                      onChange={(e) => setSeqNameInput(e.target.value)}
+                      onBlur={handleRenameSeq}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                        if (e.key === "Escape" && !renamingSeq) {
+                          e.preventDefault();
+                          setEditingSeqName(false);
+                        }
+                      }}
+                      className="text-sm font-semibold bg-transparent border-b border-primary outline-none text-foreground w-48 disabled:opacity-60"
+                    />
+                    {renamingSeq && (
+                      <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                        <span className="h-3 w-3 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                        Updating
+                      </span>
+                    )}
+                  </div>
                 ) : (
                   <button
                     onClick={() => {
