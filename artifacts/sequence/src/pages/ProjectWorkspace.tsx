@@ -127,6 +127,7 @@ function SortableTrackRow({
   track,
   index,
   onPlay,
+  onActivate,
   onRemove,
   isPlaying,
   coverImageUrl,
@@ -134,6 +135,7 @@ function SortableTrackRow({
   track: SequenceTrack;
   index: number;
   onPlay: () => void;
+  onActivate: () => void;
   onRemove: () => void;
   isPlaying: boolean;
   coverImageUrl?: string | null;
@@ -149,7 +151,7 @@ function SortableTrackRow({
   const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button,input,[data-drag-handle]")) return;
-    onPlay();
+    onActivate();
   };
 
   return (
@@ -230,6 +232,7 @@ function SortableTrackRow({
 function LibraryTrackRow({
   track,
   onPlay,
+  onActivate,
   onDelete,
   onAddToSequence,
   onRename,
@@ -241,6 +244,7 @@ function LibraryTrackRow({
 }: {
   track: Track;
   onPlay: () => void;
+  onActivate: () => void;
   onDelete: () => void;
   onAddToSequence?: () => void;
   onRename: (title: string) => void;
@@ -282,7 +286,7 @@ function LibraryTrackRow({
     if (isEditing) return;
     const target = event.target as HTMLElement;
     if (target.closest("button,input")) return;
-    onPlay();
+    onActivate();
   };
 
   return (
@@ -888,7 +892,8 @@ export function ProjectWorkspace() {
   const playTrack = (
     track: Track | SequenceTrack,
     queue: (Track | SequenceTrack)[],
-    sourceSeq?: { id: string; name: string } | null
+    sourceSeq?: { id: string; name: string } | null,
+    options?: { restartIfCurrent?: boolean }
   ) => {
     const coverImageUrl = project?.coverImageUrl ?? null;
     const teamName = myTeams?.find(t => t.id === teamId)?.name ?? null;
@@ -905,7 +910,7 @@ export function ProjectWorkspace() {
       camelotKey: t.camelotKey,
     });
     const trackId = "trackId" in track ? track.trackId : track.id;
-    if (currentTrack?.id === trackId) {
+    if (currentTrack?.id === trackId && !options?.restartIfCurrent) {
       isPlaying ? pause() : resume();
     } else {
       play(toPlayerTrack(track), queue.map(toPlayerTrack));
@@ -1165,6 +1170,7 @@ export function ProjectWorkspace() {
                     hasActiveSequence={!!selectedSeqId}
                     coverImageUrl={project?.coverImageUrl}
                     onPlay={() => playTrack(track, tracks)}
+                    onActivate={() => playTrack(track, tracks, null, { restartIfCurrent: true })}
                     onAddToSequence={() => handleAddToSeq(track.id)}
                     onRename={async (title) => {
                       await updateTrack.mutateAsync({ projectId, trackId: track.id, data: { title } });
@@ -1450,6 +1456,10 @@ export function ProjectWorkspace() {
                         onPlay={() => {
                           const seq = sequences?.find(s => s.id === selectedSeqId);
                           playTrack(track, displayTracks, seq ? { id: seq.id, name: seq.name } : null);
+                        }}
+                        onActivate={() => {
+                          const seq = sequences?.find(s => s.id === selectedSeqId);
+                          playTrack(track, displayTracks, seq ? { id: seq.id, name: seq.name } : null, { restartIfCurrent: true });
                         }}
                         onRemove={() => handleRemoveFromSeq(track.trackId)}
                       />
